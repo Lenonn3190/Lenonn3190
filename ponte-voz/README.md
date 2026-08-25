@@ -57,13 +57,27 @@ O nível gratuito do Gemini cobre com folga um dia inteiro de conversa.
 
 **O microfone só funciona em HTTPS.** Abrir o arquivo direto (`file://`) ou por
 um IP da rede local em HTTP **não vai funcionar** — o navegador bloqueia o
-microfone. A forma mais simples de ter HTTPS de graça é o GitHub Pages:
+microfone. Qualquer uma das duas opções abaixo resolve isso de graça.
 
-1. No repositório, vá em **Settings → Pages**
+#### Netlify (recomendado)
+
+O `netlify.toml` na raiz do repositório já está pronto: publica a pasta
+`ponte-voz/` na raiz do site, então o app fica em
+`https://<seu-site>.netlify.app/` — sem subcaminho.
+
+- **Pelo Git:** em <https://app.netlify.com>, *Add new site → Import an existing
+  project*, escolha o repositório. Não mexa em nada: as configurações vêm do
+  `netlify.toml`.
+- **Sem Git:** arraste a pasta `ponte-voz/` para
+  <https://app.netlify.com/drop>. Publica na hora, sem conta.
+
+#### GitHub Pages
+
+1. No repositório, **Settings → Pages**
 2. Em *Source*, escolha a branch e a pasta raiz (`/`)
 3. O app fica em `https://<seu-usuario>.github.io/ponte-voz/`
 
-Esse é o link que você manda para o convidado.
+Nos dois casos, o endereço resultante é o link que você manda para o convidado.
 
 ### 3. Configure no celular
 
@@ -103,8 +117,25 @@ Cadastre também nomes próprios, códigos de peça e siglas internas. O intérp
 ## Chave compartilhada (opcional)
 
 Por padrão cada celular guarda a própria chave. Se preferir que ninguém precise
-digitar chave nenhuma, publique o proxy da pasta `worker/` no Cloudflare Workers
-(plano grátis) — a chave passa a viver só no servidor:
+digitar chave nenhuma, dá para pôr a chave num proxy do lado do servidor.
+
+### No Netlify
+
+Se já publicou pelo Netlify, a função em `netlify/functions/gemini.mjs` está
+junto — não precisa de mais nada instalado:
+
+1. No painel: **Site configuration → Environment variables**
+2. Crie `GEMINI_API_KEY` com a chave do Google AI Studio
+3. Republique o site
+4. No app, em **⚙ → Servidor intermediário**, cole
+   `https://<seu-site>.netlify.app/api` e deixe o campo da chave vazio
+
+Um detalhe de limite: uma Netlify Function síncrona é cortada em **10 s**. Uma
+fala curta responde em 1-3 s, então na prática funciona, mas uma fala muito
+longa pode estourar esse teto. Se acontecer com frequência, use o Cloudflare
+abaixo (que não tem esse limite) ou volte a deixar a chave em cada aparelho.
+
+### No Cloudflare Workers
 
 ```bash
 npm i -g wrangler
@@ -124,16 +155,20 @@ campo da chave vazio.
 ## Estrutura
 
 ```
+netlify.toml                    publica ponte-voz/ na raiz do site
+netlify/functions/gemini.mjs    proxy opcional da chave, no Netlify
 ponte-voz/
-├── index.html          o app inteiro (HTML + CSS + JS, sem dependências)
-├── manifest.json       metadados da PWA
-├── sw.js               service worker (abre offline)
+├── index.html                  o app inteiro (HTML + CSS + JS, sem dependências)
+├── manifest.json               metadados da PWA
+├── sw.js                       service worker (abre offline)
 ├── icon-192.png
 ├── icon-512.png
 └── worker/
-    ├── worker.js       proxy opcional que guarda a chave
+    ├── worker.js               o mesmo proxy, para Cloudflare Workers
     └── wrangler.toml
 ```
+
+Os dois proxies fazem a mesma coisa — use **um** dos dois, ou nenhum.
 
 Zero dependências, zero build. Editar o `index.html` e dar push já publica.
 

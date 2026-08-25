@@ -1,0 +1,31 @@
+# Netlify — publica a pasta do Ponte na raiz do site.
+#
+# Com publish = "ponte-voz", o app fica em https://<seu-site>.netlify.app/
+# em vez de um subcaminho, então os caminhos relativos do index.html
+# (manifest.json, sw.js, ícones) funcionam sem ajuste nenhum.
+
+[build]
+  publish  = "ponte-voz"
+  command  = ""                      # site estático: não há nada para compilar
+  functions = "netlify/functions"
+
+# O service worker precisa ser revalidado sempre, senão uma correção
+# publicada demora a chegar no celular de quem já instalou o app.
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+
+# O microfone só é liberado em contexto seguro; o Netlify já serve tudo em
+# HTTPS. Esta política apenas deixa explícito que a página pode usar o mic.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Permissions-Policy = "microphone=(self)"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
