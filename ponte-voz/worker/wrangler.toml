@@ -1,0 +1,11 @@
+name = "ponte"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+
+[vars]
+# Troque pelo endereço onde o app está publicado. Deixar em branco libera
+# qualquer origem — prático para testar, arriscado para deixar assim.
+ALLOWED_ORIGINS = "https://lenonn3190.github.io"
+
+# A chave NÃO vai aqui. Ela entra como segredo:
+#   wrangler secret put GEMINI_API_KEY

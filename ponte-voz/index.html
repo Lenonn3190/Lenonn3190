@@ -1,0 +1,1061 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1.0, user-scalable=no" />
+<meta name="color-scheme" content="dark" />
+<title>Ponte — Tradutor de Voz PT⇄JA</title>
+<meta name="description" content="Tradutor de voz presencial entre português e japonês." />
+<meta name="theme-color" content="#0b1220" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="Ponte" />
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%2314b8a6'/%3E%3Ctext x='50' y='68' font-family='Arial,sans-serif' font-size='54' font-weight='bold' fill='white' text-anchor='middle'%3E%E2%87%84%3C/text%3E%3C/svg%3E" />
+<link rel="apple-touch-icon" href="icon-192.png" />
+<link rel="manifest" href="manifest.json" />
+
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0b1220; --panel:#0f1830; --panel-2:#152341;
+  --line:#22304f; --line-2:#2c3d63;
+  --txt:#e8edf7; --muted:#9fb0cc; --faint:#7286a8;
+  --pt:#22c55e; --pt-dim:rgba(34,197,94,.14);
+  --ja:#f43f5e; --ja-dim:rgba(244,63,94,.14);
+  --brand:#14b8a6; --warn:#f59e0b; --bad:#ef4444;
+  --font:system-ui,-apple-system,'Segoe UI',Roboto,'Hiragino Sans','Noto Sans JP',sans-serif;
+  --radius:16px;
+}
+html,body{height:100%;overflow:hidden;overscroll-behavior:none}
+body{
+  background:var(--bg);color:var(--txt);font-family:var(--font);
+  -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+input,select,textarea{font-family:inherit;font-size:16px}
+
+/* ============ LAYOUT PRINCIPAL ============ */
+#app{
+  height:100dvh;display:grid;
+  grid-template-rows:1fr auto 1fr;
+  /* Sem esta coluna explícita, a coluna implícita seria `auto` = max-content:
+     uma mensagem de status longa (que é nowrap) esticaria a tela inteira e
+     jogaria o botão ⚙ para fora. minmax(0,1fr) prende tudo à largura real. */
+  grid-template-columns:minmax(0,1fr);
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+.side{display:flex;flex-direction:column;min-height:0;min-width:0;padding:10px 12px;gap:8px}
+/* o lado japonês fica de cabeça para baixo: celular deitado na mesa entre os dois */
+.side.ja{transform:rotate(180deg)}
+
+.tag{
+  display:flex;align-items:center;gap:8px;font-size:12px;font-weight:800;
+  letter-spacing:.6px;text-transform:uppercase;flex:none;
+}
+.tag .dot{width:8px;height:8px;border-radius:50%}
+.side.pt .tag{color:var(--pt)} .side.pt .tag .dot{background:var(--pt)}
+.side.ja .tag{color:var(--ja)} .side.ja .tag .dot{background:var(--ja)}
+.tag .replay{margin-left:auto;font-size:19px;opacity:.65;padding:2px 8px;line-height:1}
+.tag .replay:active{opacity:1}
+
+.pane{
+  flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:14px 16px;display:flex;flex-direction:column;justify-content:center;
+}
+.side.pt .pane{border-color:color-mix(in srgb,var(--pt) 30%,var(--line))}
+.side.ja .pane{border-color:color-mix(in srgb,var(--ja) 30%,var(--line))}
+/* align-items:center faria os filhos terem largura de conteúdo — e aí um texto
+   longo vaza para fora da tela em vez de quebrar. O texto já é centralizado
+   por text-align, então os filhos ficam esticados na largura do painel. */
+.pane.empty{justify-content:center}
+.pane>*{max-width:100%;overflow-wrap:anywhere}
+
+.txt{font-size:26px;line-height:1.35;font-weight:600}
+.side.ja .txt{font-size:27px;line-height:1.5}
+.reading{margin-top:9px;font-size:15px;color:var(--faint);font-style:italic}
+.hint{color:var(--faint);font-size:15px;text-align:center;line-height:1.6}
+.note{
+  margin-top:11px;padding:9px 12px;border-radius:10px;font-size:13.5px;line-height:1.45;
+  background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:#fcd34d;
+}
+.err{color:#fca5a5;font-size:16px;font-weight:600;text-align:center;line-height:1.5}
+
+/* ============ BOTÃO DE MICROFONE ============ */
+.mic{
+  flex:none;height:78px;border-radius:var(--radius);font-size:21px;font-weight:800;
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  border:2px solid transparent;transition:transform .1s,background .15s;
+  letter-spacing:.3px;
+}
+.mic:active{transform:scale(.975)}
+.side.pt .mic{background:var(--pt-dim);border-color:var(--pt);color:#86efac}
+.side.ja .mic{background:var(--ja-dim);border-color:var(--ja);color:#fda4af}
+.mic[disabled]{opacity:.4}
+.mic.rec{color:#fff;animation:pulse 1.15s ease-in-out infinite}
+.side.pt .mic.rec{background:var(--pt)} .side.ja .mic.rec{background:var(--ja)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.62}}
+.mic .ico{font-size:25px;line-height:1}
+.mic .lvl{
+  width:64px;height:7px;border-radius:99px;background:rgba(255,255,255,.28);
+  overflow:hidden;display:none;
+}
+.mic.rec .lvl{display:block}
+.mic .lvl i{display:block;height:100%;width:0%;background:#fff;transition:width .09s linear}
+
+/* ============ BARRA CENTRAL ============ */
+.bar{
+  flex:none;display:flex;align-items:center;gap:8px;padding:7px 12px;min-width:0;
+  background:var(--panel-2);border-top:1px solid var(--line);border-bottom:1px solid var(--line);
+}
+.bar button{
+  padding:8px 11px;border-radius:9px;font-size:12.5px;font-weight:700;color:var(--muted);
+  background:var(--panel);border:1px solid var(--line);white-space:nowrap;
+}
+.bar button:active{background:var(--line)}
+#status{
+  flex:1;text-align:center;font-size:12.5px;color:var(--faint);font-weight:600;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+#status.busy{color:var(--brand)}
+#status.bad{color:#fca5a5}
+
+/* ============ MODAIS ============ */
+.modal{
+  position:fixed;inset:0;background:rgba(4,8,18,.82);backdrop-filter:blur(5px);
+  z-index:50;display:none;align-items:flex-end;justify-content:center;
+}
+.modal.on{display:flex}
+.sheet{
+  width:100%;max-width:620px;max-height:92dvh;background:var(--panel);
+  border:1px solid var(--line);border-radius:20px 20px 0 0;
+  display:flex;flex-direction:column;overflow:hidden;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+.sheet header{
+  flex:none;display:flex;align-items:center;gap:10px;padding:16px 18px;
+  border-bottom:1px solid var(--line);
+}
+.sheet header h2{font-size:16.5px;font-weight:800}
+.sheet header button{margin-left:auto;font-size:23px;color:var(--muted);padding:0 4px;line-height:1}
+.body{padding:16px 18px;overflow-y:auto;-webkit-overflow-scrolling:touch;flex:1}
+.body h3{font-size:12px;text-transform:uppercase;letter-spacing:.7px;color:var(--faint);margin:20px 0 9px;font-weight:800}
+.body h3:first-child{margin-top:0}
+.body p{font-size:13.5px;color:var(--muted);line-height:1.6;margin-bottom:11px}
+.body p code{background:var(--panel-2);padding:1px 6px;border-radius:5px;font-size:12.5px;color:var(--brand)}
+.body a{color:var(--brand);font-weight:600}
+label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin-bottom:6px}
+input[type=text],input[type=password],select,textarea{
+  width:100%;padding:12px 13px;background:var(--bg);color:var(--txt);
+  border:1px solid var(--line-2);border-radius:10px;margin-bottom:13px;
+}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand)}
+textarea{resize:vertical;min-height:74px;line-height:1.5}
+.btn{
+  width:100%;padding:13px;border-radius:11px;font-size:14.5px;font-weight:800;
+  background:var(--brand);color:#04211d;margin-bottom:10px;
+}
+.btn.sec{background:var(--panel-2);color:var(--txt);border:1px solid var(--line-2)}
+.btn:active{opacity:.82}
+.btn[disabled]{opacity:.5}
+.row{display:flex;gap:9px}.row>*{flex:1;margin-bottom:0}
+.row+.row{margin-top:10px}
+
+.gl-item{
+  display:flex;gap:10px;align-items:center;padding:11px 12px;background:var(--panel-2);
+  border:1px solid var(--line);border-radius:11px;margin-bottom:8px;
+}
+.gl-item div{flex:1;min-width:0}
+.gl-item b{display:block;font-size:14px;font-weight:700}
+.gl-item small{display:block;color:var(--faint);font-size:12.5px;margin-top:2px}
+.gl-item button{color:var(--bad);font-size:20px;padding:0 6px;flex:none;line-height:1}
+
+.h-item{padding:11px 0;border-bottom:1px solid var(--line)}
+.h-item .pt-l{font-size:14.5px;color:#86efac;font-weight:600;line-height:1.4}
+.h-item .ja-l{font-size:15px;color:#fda4af;margin-top:5px;font-weight:600;line-height:1.5}
+.h-item .rd{font-size:12px;color:var(--faint);font-style:italic;margin-top:3px}
+.h-item time{font-size:10.5px;color:var(--faint);display:block;margin-top:6px}
+
+.ph-item{
+  padding:12px 13px;background:var(--panel-2);border:1px solid var(--line);
+  border-radius:11px;margin-bottom:8px;
+}
+.ph-item .a{font-size:14.5px;font-weight:700;color:#86efac}
+.ph-item .b{font-size:15.5px;font-weight:700;color:#fda4af;margin-top:5px}
+.ph-item .r{font-size:12.5px;color:var(--faint);font-style:italic;margin-top:3px}
+.ph-item .sp{margin-top:8px;font-size:12px;font-weight:800;color:var(--brand);
+  border:1px solid var(--line-2);border-radius:8px;padding:6px 11px;display:inline-block}
+
+.pill{
+  display:inline-block;font-size:11px;font-weight:800;padding:3px 9px;border-radius:20px;
+  border:1px solid var(--line-2);color:var(--muted);margin:0 6px 6px 0;
+}
+.pill.ok{color:#86efac;border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.1)}
+.pill.no{color:#fca5a5;border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.1)}
+
+@media (max-height:640px){
+  .txt{font-size:21px} .side.ja .txt{font-size:22px}
+  .mic{height:64px;font-size:18px}
+}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <!-- ============ LADO JAPONÊS (invertido) ============ -->
+  <section class="side ja">
+    <div class="tag">
+      <span class="dot"></span><span>日本語</span>
+      <button class="replay" data-replay="ja" aria-label="もう一度">🔊</button>
+    </div>
+    <div class="pane empty" id="paneJA">
+      <div class="hint">ボタンを押して話してください。<br>ポルトガル語に翻訳します。</div>
+    </div>
+    <button class="mic" id="micJA"><span class="ico">🎤</span><span class="lbl">話す</span><span class="lvl"><i></i></span></button>
+  </section>
+
+  <!-- ============ BARRA CENTRAL ============ -->
+  <div class="bar">
+    <button id="bGloss">用語集</button>
+    <button id="bPhrase">📖</button>
+    <div id="status">Pronto</div>
+    <button id="bHist">🕘</button>
+    <button id="bCfg">⚙</button>
+  </div>
+
+  <!-- ============ LADO PORTUGUÊS ============ -->
+  <section class="side pt">
+    <button class="mic" id="micPT"><span class="ico">🎤</span><span class="lbl">Falar</span><span class="lvl"><i></i></span></button>
+    <div class="pane empty" id="panePT">
+      <div class="hint">Toque no botão e fale.<br>Vou traduzir para o japonês.</div>
+    </div>
+    <div class="tag">
+      <span class="dot"></span><span>Português</span>
+      <button class="replay" data-replay="pt" aria-label="Repetir">🔊</button>
+    </div>
+  </section>
+</div>
+
+<!-- ============ CONFIGURAÇÕES ============ -->
+<div class="modal" id="mCfg"><div class="sheet">
+  <header><h2>⚙ Configurações</h2><button data-close>×</button></header>
+  <div class="body">
+    <h3>Chave da API do Google Gemini</h3>
+    <p>Pegue a sua gratuitamente em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Ela fica salva só neste celular e nunca é enviada para outro lugar além do Google.</p>
+    <label for="iKey">Chave (AIza…)</label>
+    <input type="password" id="iKey" placeholder="AIzaSy…" autocomplete="off" spellcheck="false" />
+
+    <label for="iProxy">Servidor intermediário (opcional)</label>
+    <input type="text" id="iProxy" placeholder="https://ponte.seuusuario.workers.dev" autocomplete="off" spellcheck="false" />
+    <p style="margin-top:-4px">Se preencher, a chave fica guardada no servidor e não é preciso digitá-la em cada celular. Veja <code>worker/</code> no repositório.</p>
+
+    <label for="iModel">Modelo</label>
+    <select id="iModel"><option value="gemini-2.5-flash">gemini-2.5-flash</option></select>
+
+    <button class="btn sec" id="bTest">Testar conexão e listar modelos</button>
+    <div id="testOut" style="margin-bottom:14px"></div>
+
+    <h3>Vozes instaladas neste aparelho</h3>
+    <div id="voiceOut" style="margin-bottom:8px"></div>
+    <p>Se faltar a voz em japonês, instale o pacote de idioma do aparelho (Android: <em>Configurações → Sistema → Idiomas → Conversão de texto em voz</em>). Sem ela o texto ainda aparece na tela, mas não é falado.</p>
+
+    <h3>Ajustes</h3>
+    <label for="iRate">Velocidade da fala: <span id="rateVal">0,95</span>×</label>
+    <input type="range" id="iRate" min="0.6" max="1.3" step="0.05" value="0.95" style="width:100%;margin-bottom:16px" />
+    <label style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+      <input type="checkbox" id="iAuto" checked style="width:20px;height:20px;flex:none;margin:0" />
+      <span style="font-weight:600;color:var(--txt)">Parar de gravar sozinho no silêncio</span>
+    </label>
+
+    <button class="btn" data-close>Salvar e fechar</button>
+  </div>
+</div></div>
+
+<!-- ============ GLOSSÁRIO ============ -->
+<div class="modal" id="mGloss"><div class="sheet">
+  <header><h2>📌 Glossário da empresa</h2><button data-close>×</button></header>
+  <div class="body">
+    <p>Termos que a tradução automática costuma errar: nome de máquina, código de peça, processo interno, sigla. O intérprete é obrigado a usar exatamente o que estiver aqui.</p>
+    <div class="row">
+      <input type="text" id="gPT" placeholder="Português: romaneio" />
+      <input type="text" id="gJA" placeholder="日本語: 積荷リスト" />
+    </div>
+    <input type="text" id="gNote" placeholder="Observação (opcional): não traduzir, é nome próprio" style="margin-top:10px" />
+    <button class="btn" id="bGlossAdd">Adicionar termo</button>
+    <div id="glossList"></div>
+  </div>
+</div></div>
+
+<!-- ============ HISTÓRICO ============ -->
+<div class="modal" id="mHist"><div class="sheet">
+  <header><h2>🕘 Conversa</h2><button data-close>×</button></header>
+  <div class="body">
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn sec" id="bExport" style="margin:0">Exportar</button>
+      <button class="btn sec" id="bClear" style="margin:0">Limpar</button>
+    </div>
+    <div id="histList"></div>
+  </div>
+</div></div>
+
+<!-- ============ FRASES ESSENCIAIS ============ -->
+<div class="modal" id="mPhrase"><div class="sheet">
+  <header><h2>📖 Frases essenciais</h2><button data-close>×</button></header>
+  <div class="body">
+    <p>Funcionam sem internet e sem chave de API. Toque em <b>Falar</b> para o aparelho pronunciar em japonês.</p>
+    <div id="phraseList"></div>
+  </div>
+</div></div>
+
+<script>
+'use strict';
+
+/* ==========================================================================
+   PONTE — tradutor de voz presencial português ⇄ japonês
+   Fluxo: microfone → WAV 16 kHz mono → Gemini (transcreve + traduz) → voz.
+   ========================================================================== */
+
+const LANG = {
+  pt:{ bcp:'pt-BR', nome:'português do Brasil', pane:'panePT', mic:'micPT',
+       lbl:'Falar', rec:'Ouvindo… toque para parar', wait:'Traduzindo…' },
+  ja:{ bcp:'ja-JP', nome:'japonês', pane:'paneJA', mic:'micJA',
+       lbl:'話す', rec:'聞いています…押して停止', wait:'翻訳中…' }
+};
+const OTHER = { pt:'ja', ja:'pt' };
+
+const ERRO = {
+  pt:{ mudo:'Não consegui ouvir nada. Fale mais perto do aparelho.',
+       rede:'Sem conexão com o servidor de tradução.',
+       chave:'Falta configurar a chave da API. Toque em ⚙.',
+       geral:'Falhou. Toque no microfone e tente de novo.' },
+  ja:{ mudo:'音声が聞き取れませんでした。もう一度お願いします。',
+       rede:'翻訳サーバーに接続できません。',
+       chave:'APIキーが未設定です。⚙ を押してください。',
+       geral:'失敗しました。もう一度お試しください。' }
+};
+
+const FRASES = [
+  ['Bom dia!','おはようございます','ohayou gozaimasu'],
+  ['Muito prazer.','はじめまして','hajimemashite'],
+  ['Obrigado!','ありがとうございます','arigatou gozaimasu'],
+  ['Desculpe.','すみません','sumimasen'],
+  ['Sim.','はい','hai'],
+  ['Não.','いいえ','iie'],
+  ['Entendi.','わかりました','wakarimashita'],
+  ['Não entendi.','わかりません','wakarimasen'],
+  ['Pode repetir, por favor?','もう一度お願いします','mou ichido onegaishimasu'],
+  ['Um momento, por favor.','少々お待ちください','shoushou omachi kudasai'],
+  ['Pode falar mais devagar?','ゆっくり話してください','yukkuri hanashite kudasai'],
+  ['Vamos começar.','始めましょう','hajimemashou'],
+  ['Vamos fazer uma pausa.','休憩しましょう','kyuukei shimashou'],
+  ['Terminamos por hoje.','今日はここまでです','kyou wa koko made desu'],
+  ['Por aqui, por favor.','こちらへどうぞ','kochira e douzo'],
+  ['Cuidado!','危ない！','abunai!'],
+  ['Tudo bem?','大丈夫ですか？','daijoubu desu ka?'],
+  ['Está tudo certo.','大丈夫です','daijoubu desu'],
+  ['Preciso de ajuda.','手伝ってください','tetsudatte kudasai'],
+  ['Onde fica o banheiro?','トイレはどこですか？','toire wa doko desu ka?'],
+  ['Vamos almoçar.','昼食にしましょう','chuushoku ni shimashou'],
+  ['Quanto tempo leva?','どのくらいかかりますか？','dono kurai kakarimasu ka?'],
+  ['Está funcionando.','動いています','ugoite imasu'],
+  ['Não está funcionando.','動いていません','ugoite imasen'],
+  ['Isso está correto?','これで合っていますか？','kore de atte imasu ka?'],
+  ['Vou anotar.','メモします','memo shimasu'],
+  ['Até amanhã!','また明日','mata ashita'],
+  ['Bom trabalho hoje!','お疲れさまでした','otsukaresama deshita']
+];
+
+/* ---------- estado persistido ---------- */
+const S = {
+  get key(){ return localStorage.getItem('ponte.key') || '' },
+  set key(v){ localStorage.setItem('ponte.key', v) },
+  get proxy(){ return (localStorage.getItem('ponte.proxy') || '').replace(/\/+$/,'') },
+  set proxy(v){ localStorage.setItem('ponte.proxy', v) },
+  get model(){ return localStorage.getItem('ponte.model') || 'gemini-2.5-flash' },
+  set model(v){ localStorage.setItem('ponte.model', v) },
+  get rate(){ return parseFloat(localStorage.getItem('ponte.rate') || '0.95') },
+  set rate(v){ localStorage.setItem('ponte.rate', String(v)) },
+  get autoStop(){ return localStorage.getItem('ponte.autostop') !== '0' },
+  set autoStop(v){ localStorage.setItem('ponte.autostop', v ? '1' : '0') },
+  get gloss(){ try{ return JSON.parse(localStorage.getItem('ponte.gloss') || '[]') }catch(e){ return [] } },
+  set gloss(v){ localStorage.setItem('ponte.gloss', JSON.stringify(v)) },
+  get hist(){ try{ return JSON.parse(localStorage.getItem('ponte.hist') || '[]') }catch(e){ return [] } },
+  set hist(v){ localStorage.setItem('ponte.hist', JSON.stringify(v.slice(-300))) }
+};
+
+const $ = s => document.querySelector(s);
+const el = (t,c,x) => { const n=document.createElement(t); if(c)n.className=c; if(x!=null)n.textContent=x; return n; };
+const esc = s => String(s==null?'':s);
+
+let ultimaFala = { pt:'', ja:'' };   // para o botão de repetir
+let gravando   = null;               // 'pt' | 'ja' | null
+let ocupado    = false;
+
+/* ==========================================================================
+   1. ÁUDIO — captura, detecção de silêncio, conversão para WAV 16 kHz
+   ========================================================================== */
+
+let audioCtx = null;
+function ctx(){
+  if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  if(audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function melhorMime(){
+  const tenta = ['audio/webm;codecs=opus','audio/webm','audio/mp4','audio/ogg;codecs=opus'];
+  for(const m of tenta){
+    if(window.MediaRecorder && MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(m)) return m;
+  }
+  return '';
+}
+
+/**
+ * Grava até o usuário parar, o silêncio durar ~1,6 s ou estourar 30 s.
+ * Devolve o Blob bruto do MediaRecorder.
+ */
+function gravar(onNivel){
+  return new Promise(async (resolve, reject) => {
+    let stream;
+    try{
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio:{ channelCount:1, echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+      });
+    }catch(e){ return reject(new Error('mic')); }
+
+    const mime = melhorMime();
+    let mr;
+    try{ mr = new MediaRecorder(stream, mime ? { mimeType:mime } : undefined); }
+    catch(e){ mr = new MediaRecorder(stream); }
+
+    const pedacos = [];
+    let encerrado = false;
+
+    // --- medidor de volume + detector de silêncio ---
+    const ac = ctx();
+    const src = ac.createMediaStreamSource(stream);
+    const an = ac.createAnalyser();
+    an.fftSize = 1024; an.smoothingTimeConstant = 0.5;
+    src.connect(an);
+    const buf = new Float32Array(an.fftSize);
+
+    // Um limiar fixo falha nos dois extremos: numa sala silenciosa corta voz
+    // baixa, num galpão o ruído de fundo passa por fala. Então os primeiros
+    // 400 ms medem o ruído do ambiente e o limiar se ajusta a ele.
+    const inicio = Date.now();
+    const piso = [];
+    let limiar = 0.012, falou = false, quietoDesde = 0;
+
+    const timer = setInterval(() => {
+      an.getFloatTimeDomainData(buf);
+      let soma = 0;
+      for(let i=0;i<buf.length;i++) soma += buf[i]*buf[i];
+      const rms = Math.sqrt(soma / buf.length);
+      onNivel(Math.min(100, rms * 450));
+
+      const passado = Date.now() - inicio;
+      if(passado < 400){ piso.push(rms); return; }
+      if(piso.length){
+        const medio = piso.reduce((a,b) => a+b, 0) / piso.length;
+        limiar = Math.max(0.012, medio * 2.5);
+        piso.length = 0;
+      }
+
+      if(rms > limiar){ falou = true; quietoDesde = 0; }
+      else if(falou){
+        if(!quietoDesde) quietoDesde = Date.now();
+        else if(S.autoStop && Date.now() - quietoDesde > 1600) parar();
+      }
+      else if(S.autoStop && passado > 6000){
+        parar();   // ninguém falou: não fica gravando à toa até os 30 s
+      }
+    }, 100);
+
+    const limite = setTimeout(parar, 30000);
+
+    function parar(){
+      if(encerrado) return;
+      encerrado = true;
+      clearInterval(timer); clearTimeout(limite);
+      try{ src.disconnect() }catch(e){}
+      try{ if(mr.state !== 'inactive') mr.stop() }catch(e){ finalizar() }
+    }
+    function finalizar(){
+      stream.getTracks().forEach(t => t.stop());
+      resolve({ blob:new Blob(pedacos, { type: mr.mimeType || mime || 'audio/webm' }), falou });
+    }
+
+    mr.ondataavailable = e => { if(e.data && e.data.size) pedacos.push(e.data); };
+    mr.onstop = finalizar;
+    mr.onerror = () => { parar(); };
+    mr.start(120);
+
+    // devolve o controle de parada para quem chamou
+    gravar._parar = parar;
+  });
+}
+
+/** Blob (webm/opus, mp4/aac…) → WAV PCM16 mono 16 kHz em base64. */
+async function paraWav(blob){
+  const bruto = await blob.arrayBuffer();
+  const ac = ctx();
+  const audio = await new Promise((res, rej) => {
+    // decodeAudioData: forma com callback funciona também no Safari antigo
+    const p = ac.decodeAudioData(bruto.slice(0), res, rej);
+    if(p && p.then) p.then(res, rej);
+  });
+
+  // mistura os canais em mono
+  const n = audio.length, canais = audio.numberOfChannels;
+  let mono;
+  if(canais === 1){
+    mono = audio.getChannelData(0);
+  }else{
+    mono = new Float32Array(n);
+    for(let c=0;c<canais;c++){
+      const d = audio.getChannelData(c);
+      for(let i=0;i<n;i++) mono[i] += d[i] / canais;
+    }
+  }
+
+  // reamostra para 16 kHz (interpolação linear)
+  const razao = audio.sampleRate / 16000;
+  const saidaN = Math.max(1, Math.floor(n / razao));
+  const out = new Float32Array(saidaN);
+  for(let i=0;i<saidaN;i++){
+    const p = i * razao, i0 = Math.floor(p), i1 = Math.min(i0+1, n-1), t = p - i0;
+    out[i] = mono[i0]*(1-t) + mono[i1]*t;
+  }
+
+  // normaliza o pico — ajuda muito em ambiente barulhento / voz distante
+  let pico = 0;
+  for(let i=0;i<saidaN;i++){ const a = Math.abs(out[i]); if(a > pico) pico = a; }
+  if(pico > 0.001 && pico < 0.92){
+    const g = Math.min(6, 0.92 / pico);
+    for(let i=0;i<saidaN;i++) out[i] *= g;
+  }
+
+  return { b64: b64(wav(out, 16000)), pico, segundos: saidaN / 16000 };
+}
+
+function wav(f32, taxa){
+  const n = f32.length, ab = new ArrayBuffer(44 + n*2), v = new DataView(ab);
+  const w = (o,s) => { for(let i=0;i<s.length;i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  w(0,'RIFF');  v.setUint32(4, 36 + n*2, true); w(8,'WAVE');
+  w(12,'fmt '); v.setUint32(16, 16, true); v.setUint16(20, 1, true);
+  v.setUint16(22, 1, true); v.setUint32(24, taxa, true);
+  v.setUint32(28, taxa*2, true); v.setUint16(32, 2, true); v.setUint16(34, 16, true);
+  w(36,'data'); v.setUint32(40, n*2, true);
+  let o = 44;
+  for(let i=0;i<n;i++){
+    const s = Math.max(-1, Math.min(1, f32[i]));
+    v.setInt16(o, s < 0 ? s*0x8000 : s*0x7fff, true); o += 2;
+  }
+  return ab;
+}
+
+function b64(ab){
+  const b = new Uint8Array(ab); let s = ''; const P = 0x8000;
+  for(let i=0;i<b.length;i+=P) s += String.fromCharCode.apply(null, b.subarray(i, i+P));
+  return btoa(s);
+}
+
+/* ==========================================================================
+   2. GEMINI — transcreve e traduz numa chamada só
+   ========================================================================== */
+
+function prompt(de, para){
+  const g = S.gloss;
+  const linhas = [
+    'Você é um intérprete simultâneo profissional entre português do Brasil e japonês.',
+    'O contexto é uma atividade de trabalho presencial numa empresa brasileira que está recebendo um funcionário japonês.',
+    '',
+    'O áudio anexo contém uma fala em ' + LANG[de].nome + '.',
+    '',
+    'Faça, nesta ordem:',
+    '1. Transcreva literalmente o que foi dito, em ' + LANG[de].nome + '. Corrija apenas gaguejos e repetições acidentais.',
+    '2. Traduza para ' + LANG[para].nome + '.',
+    '',
+    'Regras da tradução:',
+    '- Registro de fala falada e educada entre colegas de trabalho (em japonês use です/ます; nunca linguagem de livro).',
+    '- Traduza a INTENÇÃO, não palavra por palavra. Deve soar como alguém realmente falaria.',
+    '- Números, quantidades, horários, medidas e códigos de peça precisam sair exatos.',
+    '- Nunca acrescente informação que não foi dita, nunca responda à fala, nunca comente. Você é só o intérprete.',
+    '- Se o áudio estiver vazio, mudo ou totalmente ininteligível, devolva source_text como texto vazio.'
+  ];
+
+  if(para === 'ja'){
+    linhas.push('- Em target_reading escreva a leitura do japonês em romaji (Hepburn), separado por palavras.');
+  }else{
+    linhas.push('- Em target_reading escreva texto vazio.');
+  }
+  if(de === 'ja'){
+    linhas.push('- Em source_reading escreva a leitura do japonês transcrito em romaji (Hepburn).');
+  }else{
+    linhas.push('- Em source_reading escreva texto vazio.');
+  }
+
+  linhas.push('- Em note, escreva UMA frase curta em português SÓ se houver ambiguidade real que possa causar mal-entendido (sujeito omitido, palavra com dois sentidos, termo técnico incerto) e diga qual sentido você assumiu. Se não houver, devolva texto vazio.');
+
+  if(g.length){
+    linhas.push('', 'GLOSSÁRIO OBRIGATÓRIO DESTA EMPRESA — use exatamente estes equivalentes:');
+    for(const t of g){
+      linhas.push('- "' + t.pt + '" ⇄ "' + t.ja + '"' + (t.note ? '  (' + t.note + ')' : ''));
+    }
+  }
+
+  const h = S.hist.slice(-4);
+  if(h.length){
+    linhas.push('', 'Falas anteriores desta mesma conversa, para você manter o contexto e os pronomes coerentes:');
+    for(const t of h) linhas.push('- [' + t.de + '] ' + t.pt + '  /  ' + t.ja);
+  }
+
+  return linhas.join('\n');
+}
+
+const ESQUEMA = {
+  type:'OBJECT',
+  properties:{
+    source_text:{ type:'STRING' },
+    source_reading:{ type:'STRING' },
+    target_text:{ type:'STRING' },
+    target_reading:{ type:'STRING' },
+    note:{ type:'STRING' }
+  },
+  required:['source_text','source_reading','target_text','target_reading','note']
+};
+
+function url(caminho, query){
+  if(S.proxy) return S.proxy + caminho + (query ? '?' + query : '');
+  const k = 'key=' + encodeURIComponent(S.key);
+  return 'https://generativelanguage.googleapis.com/v1beta' + caminho + '?' + (query ? query + '&' : '') + k;
+}
+
+async function traduzir(b64Wav, de, para){
+  const corpo = {
+    contents:[{ parts:[
+      { text: prompt(de, para) },
+      { inline_data:{ mime_type:'audio/wav', data:b64Wav } }
+    ]}],
+    generationConfig:{
+      temperature:0.15,
+      responseMimeType:'application/json',
+      responseSchema:ESQUEMA
+    },
+    // Conversa de trabalho não deve esbarrar em filtro de conteúdo. BLOCK_NONE
+    // é recusado com 400 em contas não liberadas, então fica no nível mais
+    // permissivo que toda chave aceita.
+    safetySettings:['HARM_CATEGORY_HARASSMENT','HARM_CATEGORY_HATE_SPEECH',
+                    'HARM_CATEGORY_SEXUALLY_EXPLICIT','HARM_CATEGORY_DANGEROUS_CONTENT']
+                   .map(c => ({ category:c, threshold:'BLOCK_ONLY_HIGH' }))
+  };
+
+  const alvo = url('/models/' + S.model + ':generateContent');
+  let ultimo;
+
+  for(let tentativa = 0; tentativa < 2; tentativa++){
+    const ab = new AbortController();
+    const t = setTimeout(() => ab.abort(), 45000);
+    try{
+      const r = await fetch(alvo, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body:JSON.stringify(corpo),
+        signal:ab.signal
+      });
+      clearTimeout(t);
+
+      if(!r.ok){
+        const txt = await r.text().catch(() => '');
+        if(r.status === 400 && /API key|API_KEY/i.test(txt)) throw new Error('chave');
+        if(r.status === 403) throw new Error('chave');
+        // 429 e 5xx merecem uma segunda tentativa
+        if((r.status === 429 || r.status >= 500) && tentativa === 0){
+          ultimo = new Error('http ' + r.status);
+          await new Promise(res => setTimeout(res, 1200));
+          continue;
+        }
+        throw new Error('http ' + r.status + ' ' + txt.slice(0, 180));
+      }
+
+      const j = await r.json();
+      const bruto = (((j.candidates || [])[0] || {}).content || {}).parts;
+      const texto = (bruto || []).map(p => p.text || '').join('');
+      if(!texto) throw new Error('vazio');
+      return JSON.parse(texto);
+
+    }catch(e){
+      clearTimeout(t);
+      if(e.message === 'chave') throw e;
+      ultimo = e;
+      if(tentativa === 0 && (e.name === 'AbortError' || e instanceof TypeError)){
+        await new Promise(res => setTimeout(res, 1200));
+        continue;
+      }
+      break;
+    }
+  }
+  throw ultimo || new Error('geral');
+}
+
+/* ==========================================================================
+   3. VOZ — síntese do próprio aparelho (instantânea e sem custo)
+   ========================================================================== */
+
+let vozes = [];
+function carregarVozes(){
+  vozes = window.speechSynthesis ? speechSynthesis.getVoices() : [];
+  pintarVozes();
+}
+if(window.speechSynthesis){
+  carregarVozes();
+  speechSynthesis.onvoiceschanged = carregarVozes;
+}
+
+function acharVoz(bcp){
+  const raiz = bcp.split('-')[0];
+  return vozes.find(v => v.lang === bcp || v.lang === bcp.replace('-','_'))
+      || vozes.find(v => v.lang && v.lang.toLowerCase().startsWith(raiz))
+      || null;
+}
+
+function falar(texto, lang){
+  if(!texto || !window.speechSynthesis) return;
+  try{ speechSynthesis.cancel() }catch(e){}
+  const u = new SpeechSynthesisUtterance(texto);
+  u.lang = LANG[lang].bcp;
+  u.rate = S.rate;
+  const v = acharVoz(LANG[lang].bcp);
+  if(v) u.voice = v;
+  setTimeout(() => { try{ speechSynthesis.speak(u) }catch(e){} }, 60);
+}
+
+// iOS/Android só liberam a síntese depois de um toque do usuário
+let liberado = false;
+function liberarAudio(){
+  if(liberado) return;
+  liberado = true;
+  try{ ctx() }catch(e){}
+  if(window.speechSynthesis){
+    const u = new SpeechSynthesisUtterance(' ');
+    u.volume = 0;
+    try{ speechSynthesis.speak(u) }catch(e){}
+  }
+}
+
+/* ==========================================================================
+   4. TELA
+   ========================================================================== */
+
+function status(txt, tipo){
+  const n = $('#status');
+  n.textContent = txt;
+  n.className = tipo || '';
+}
+
+function pintar(lado, dados){
+  const p = $('#' + LANG[lado].pane);
+  p.className = 'pane';
+  p.innerHTML = '';
+  const t = el('div','txt', dados.texto);
+  p.appendChild(t);
+  if(dados.leitura) p.appendChild(el('div','reading', dados.leitura));
+  if(dados.nota)    p.appendChild(el('div','note', '⚠ ' + dados.nota));
+  ultimaFala[lado] = dados.texto;
+}
+
+function erro(lado, tipo){
+  const p = $('#' + LANG[lado].pane);
+  p.className = 'pane empty';
+  p.innerHTML = '';
+  p.appendChild(el('div','err', ERRO[lado][tipo] || ERRO[lado].geral));
+}
+
+function travar(v){
+  ocupado = v;
+  $('#micPT').disabled = v;
+  $('#micJA').disabled = v;
+}
+
+/* ==========================================================================
+   5. CICLO PRINCIPAL
+   ========================================================================== */
+
+async function turno(de){
+  liberarAudio();
+
+  // já está gravando: este toque é o "parar"
+  if(gravando === de){ if(gravar._parar) gravar._parar(); return; }
+  if(gravando || ocupado) return;
+
+  if(!S.proxy && !S.key){ erro('pt','chave'); erro('ja','chave'); abrir('#mCfg'); return; }
+
+  const para = OTHER[de];
+  const mic  = $('#' + LANG[de].mic);
+  const outro= $('#' + LANG[para].mic);
+
+  gravando = de;
+  mic.classList.add('rec');
+  mic.querySelector('.lbl').textContent = LANG[de].rec;
+  outro.disabled = true;
+  status(LANG[de].rec, 'busy');
+
+  const barra = mic.querySelector('.lvl i');
+  let cap;
+  try{
+    cap = await gravar(n => { barra.style.width = n.toFixed(0) + '%'; });
+  }catch(e){
+    gravando = null;
+    mic.classList.remove('rec');
+    mic.querySelector('.lbl').textContent = LANG[de].lbl;
+    outro.disabled = false;
+    status('Microfone bloqueado — libere o acesso nas permissões do navegador', 'bad');
+    return;
+  }
+
+  gravando = null;
+  mic.classList.remove('rec');
+  mic.querySelector('.lbl').textContent = LANG[de].lbl;
+  barra.style.width = '0%';
+  outro.disabled = false;
+
+  if(cap.blob.size < 1200){ erro(de,'mudo'); status('Não ouvi nada', 'bad'); return; }
+
+  travar(true);
+  status(LANG[de].wait + '  /  ' + LANG[para].wait, 'busy');
+
+  try{
+    // O detector de fala serve para parar a gravação; quem decide se vale a
+    // pena enviar é o áudio já decodificado. Assim uma fala baixa que o
+    // detector não pegou ainda chega ao tradutor.
+    const wavData = await paraWav(cap.blob);
+    if(wavData.segundos < 0.35 || wavData.pico < 0.005){
+      erro(de,'mudo'); status('Som muito baixo — fale mais perto', 'bad'); travar(false); return;
+    }
+
+    const r = await traduzir(wavData.b64, de, para);
+
+    if(!r.source_text || !String(r.source_text).trim()){
+      erro(de,'mudo'); status('Não consegui entender', 'bad'); travar(false); return;
+    }
+
+    pintar(de,   { texto:esc(r.source_text), leitura:esc(r.source_reading), nota:'' });
+    pintar(para, { texto:esc(r.target_text), leitura:esc(r.target_reading), nota:esc(r.note) });
+
+    const reg = {
+      t: Date.now(), de,
+      pt: de === 'pt' ? esc(r.source_text) : esc(r.target_text),
+      ja: de === 'ja' ? esc(r.source_text) : esc(r.target_text),
+      rd: de === 'ja' ? esc(r.source_reading) : esc(r.target_reading)
+    };
+    S.hist = S.hist.concat([reg]);
+
+    falar(esc(r.target_text), para);
+    status('Pronto');
+
+  }catch(e){
+    const tipo = e.message === 'chave' ? 'chave'
+               : (e.name === 'AbortError' || e instanceof TypeError) ? 'rede' : 'geral';
+    erro(de, tipo); erro(para, tipo);
+    status(tipo === 'chave' ? 'Chave da API inválida — toque em ⚙'
+         : tipo === 'rede'  ? 'Sem internet ou servidor fora do ar'
+         : 'Erro: ' + e.message, 'bad');
+  }finally{
+    travar(false);
+  }
+}
+
+$('#micPT').addEventListener('click', () => turno('pt'));
+$('#micJA').addEventListener('click', () => turno('ja'));
+document.querySelectorAll('[data-replay]').forEach(b => {
+  b.addEventListener('click', () => {
+    liberarAudio();
+    const l = b.dataset.replay;
+    if(ultimaFala[l]) falar(ultimaFala[l], l);
+  });
+});
+
+/* ==========================================================================
+   6. MODAIS
+   ========================================================================== */
+
+function abrir(sel){ $(sel).classList.add('on'); }
+function fechar(sel){ $(sel).classList.remove('on'); }
+document.querySelectorAll('[data-close]').forEach(b => {
+  b.addEventListener('click', () => b.closest('.modal').classList.remove('on'));
+});
+document.querySelectorAll('.modal').forEach(m => {
+  m.addEventListener('click', e => { if(e.target === m) m.classList.remove('on'); });
+});
+
+$('#bCfg').addEventListener('click', () => {
+  $('#iKey').value   = S.key;
+  $('#iProxy').value = S.proxy;
+  $('#iRate').value  = S.rate;
+  $('#rateVal').textContent = String(S.rate).replace('.', ',');
+  $('#iAuto').checked = S.autoStop;
+  opcaoModelo(S.model);
+  pintarVozes();
+  abrir('#mCfg');
+});
+$('#bGloss').addEventListener('click',  () => { pintarGloss();  abrir('#mGloss') });
+$('#bHist').addEventListener('click',   () => { pintarHist();   abrir('#mHist') });
+$('#bPhrase').addEventListener('click', () => { liberarAudio(); abrir('#mPhrase') });
+
+$('#iKey').addEventListener('input',   e => S.key = e.target.value.trim());
+$('#iProxy').addEventListener('input', e => S.proxy = e.target.value.trim());
+$('#iModel').addEventListener('change',e => S.model = e.target.value);
+$('#iAuto').addEventListener('change', e => S.autoStop = e.target.checked);
+$('#iRate').addEventListener('input',  e => {
+  S.rate = parseFloat(e.target.value);
+  $('#rateVal').textContent = e.target.value.replace('.', ',');
+});
+
+function opcaoModelo(m){
+  const s = $('#iModel');
+  if(![...s.options].some(o => o.value === m)) s.add(new Option(m, m));
+  s.value = m;
+}
+
+$('#bTest').addEventListener('click', async () => {
+  const b = $('#bTest'), out = $('#testOut');
+  b.disabled = true; b.textContent = 'Testando…'; out.innerHTML = '';
+  try{
+    const r = await fetch(url('/models', 'pageSize=200'));
+    if(!r.ok) throw new Error('HTTP ' + r.status + ' — ' + (r.status === 403 || r.status === 400 ? 'chave inválida ou sem permissão' : 'servidor recusou'));
+    const j = await r.json();
+    const lista = (j.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => m.name.replace('models/',''))
+      .filter(n => /gemini/.test(n) && !/embedding|aqa|image|tts/.test(n))
+      .sort();
+    const s = $('#iModel');
+    s.innerHTML = '';
+    for(const n of lista) s.add(new Option(n, n));
+    opcaoModelo(lista.includes(S.model) ? S.model : (lista.find(n => /flash/.test(n)) || lista[0]));
+    S.model = s.value;
+    out.innerHTML = '<span class="pill ok">✓ Conectado — ' + lista.length + ' modelos disponíveis</span>';
+  }catch(e){
+    out.innerHTML = '<span class="pill no">✗ ' + esc(e.message) + '</span>';
+  }
+  b.disabled = false; b.textContent = 'Testar conexão e listar modelos';
+});
+
+function pintarVozes(){
+  const out = $('#voiceOut');
+  if(!out) return;
+  const pt = acharVoz('pt-BR'), ja = acharVoz('ja-JP');
+  out.innerHTML =
+    '<span class="pill ' + (pt ? 'ok' : 'no') + '">' + (pt ? '✓ Português: ' + pt.name : '✗ Sem voz em português') + '</span>' +
+    '<span class="pill ' + (ja ? 'ok' : 'no') + '">' + (ja ? '✓ 日本語: ' + ja.name : '✗ Sem voz em japonês') + '</span>';
+}
+
+/* ---------- glossário ---------- */
+function pintarGloss(){
+  const box = $('#glossList');
+  box.innerHTML = '';
+  const g = S.gloss;
+  if(!g.length){
+    box.appendChild(el('p', null, 'Nenhum termo ainda. Adicione os que a tradução automática costuma errar.'));
+    return;
+  }
+  g.forEach((t, i) => {
+    const it = el('div','gl-item');
+    const d = el('div');
+    d.appendChild(el('b', null, t.pt + '  ⇄  ' + t.ja));
+    if(t.note) d.appendChild(el('small', null, t.note));
+    const x = el('button', null, '×');
+    x.addEventListener('click', () => { const a = S.gloss; a.splice(i,1); S.gloss = a; pintarGloss(); });
+    it.appendChild(d); it.appendChild(x);
+    box.appendChild(it);
+  });
+}
+$('#bGlossAdd').addEventListener('click', () => {
+  const pt = $('#gPT').value.trim(), ja = $('#gJA').value.trim(), note = $('#gNote').value.trim();
+  if(!pt || !ja) return;
+  S.gloss = S.gloss.concat([{ pt, ja, note }]);
+  $('#gPT').value = ''; $('#gJA').value = ''; $('#gNote').value = '';
+  pintarGloss();
+});
+
+/* ---------- histórico ---------- */
+function pintarHist(){
+  const box = $('#histList');
+  box.innerHTML = '';
+  const h = S.hist.slice().reverse();
+  if(!h.length){ box.appendChild(el('p', null, 'A conversa aparece aqui.')); return; }
+  for(const t of h){
+    const it = el('div','h-item');
+    it.appendChild(el('div','pt-l', t.pt));
+    it.appendChild(el('div','ja-l', t.ja));
+    if(t.rd) it.appendChild(el('div','rd', t.rd));
+    it.appendChild(el('time', null, new Date(t.t).toLocaleString('pt-BR')));
+    box.appendChild(it);
+  }
+}
+$('#bExport').addEventListener('click', () => {
+  const h = S.hist;
+  if(!h.length) return;
+  const linhas = ['Conversa Ponte PT⇄JA — ' + new Date().toLocaleString('pt-BR'), ''.padEnd(52,'='), ''];
+  for(const t of h){
+    linhas.push('[' + new Date(t.t).toLocaleTimeString('pt-BR') + '] ' + (t.de === 'pt' ? 'BR →' : 'JP →'));
+    linhas.push('  PT: ' + t.pt);
+    linhas.push('  JA: ' + t.ja + (t.rd ? '  (' + t.rd + ')' : ''));
+    linhas.push('');
+  }
+  const b = new Blob([linhas.join('\n')], { type:'text/plain;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = 'conversa-' + new Date().toISOString().slice(0,10) + '.txt';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+});
+$('#bClear').addEventListener('click', () => {
+  if(confirm('Apagar toda a conversa registrada?')){ S.hist = []; pintarHist(); }
+});
+
+/* ---------- frases essenciais ---------- */
+(function(){
+  const box = $('#phraseList');
+  for(const [pt, ja, rd] of FRASES){
+    const it = el('div','ph-item');
+    it.appendChild(el('div','a', pt));
+    it.appendChild(el('div','b', ja));
+    it.appendChild(el('div','r', rd));
+    const b = el('button','sp','🔊 Falar');
+    b.addEventListener('click', () => falar(ja, 'ja'));
+    it.appendChild(b);
+    box.appendChild(it);
+  }
+})();
+
+/* ==========================================================================
+   7. INICIALIZAÇÃO
+   ========================================================================== */
+
+document.addEventListener('touchstart', liberarAudio, { once:true, passive:true });
+document.addEventListener('click', liberarAudio, { once:true });
+
+// evita que o celular apague a tela no meio da conversa
+let wake = null;
+async function segurarTela(){
+  try{ if('wakeLock' in navigator && !wake) wake = await navigator.wakeLock.request('screen'); }catch(e){}
+}
+document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') segurarTela(); });
+segurarTela();
+
+if(!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia){
+  status('Este navegador não acessa o microfone — abra por HTTPS', 'bad');
+}else if(!window.isSecureContext){
+  status('Abra o app por HTTPS: o microfone é bloqueado em HTTP', 'bad');
+}else if(!S.proxy && !S.key){
+  status('Configure a chave da API em ⚙', 'bad');
+}
+
+if('serviceWorker' in navigator && window.isSecureContext){
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+</script>
+</body>
+</html>
