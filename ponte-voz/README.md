@@ -40,7 +40,8 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Voz distante ou ambiente barulhento | Normalização de pico do áudio antes do envio |
 | Rede instável | Tempo limite de 45 s + uma repetição automática em erro de rede, 429 e 5xx |
 | Erro de tradução | A mensagem de erro aparece **nas duas línguas** — o japonês entende o que houve |
-| Modelo descontinuado | O seletor de modelos é preenchido pela própria API, em ⚙ → *Testar conexão* |
+| Modelo descontinuado | O seletor de modelos é preenchido pela própria API, em ⚙ → *Testar conexão*, ordenado por versão |
+| Assunto ou registro errado na tradução | Campo de contexto da atividade vai junto em cada pedido |
 | Ficar sem internet | As frases essenciais funcionam offline, sem chave nenhuma |
 | App gravar a própria voz sintetizada | A síntese é cancelada ao começar a gravar |
 | Microfone ruim em ambiente barulhento | Dá para escolher o microfone do headset em ⚙ |
@@ -57,6 +58,12 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 
 Em <https://aistudio.google.com/apikey>, crie uma chave. Ela começa com `AIza…`.
 O nível gratuito do Gemini cobre com folga um dia inteiro de conversa.
+
+**Assinatura Gemini Pro não serve aqui.** As assinaturas de consumidor (Google
+AI Pro / Ultra) valem dentro do app do Gemini e do AI Studio; o uso por chave
+de API é cobrado à parte, via Cloud Billing. Pagar a assinatura não aumenta
+nem libera nada para este app. O que vale é o nível gratuito da chave, ou
+ativar faturamento na chave se você estourar a cota.
 
 ### 2. Publique o app
 
@@ -102,9 +109,26 @@ instalar japonês*. No iPhone a voz japonesa (Kyoko) já vem de fábrica.
 
 ---
 
-## Antes da visita: preencha o glossário
+## Antes da visita: as duas coisas que mais melhoram a tradução
 
-Este é o passo que mais melhora a qualidade e o que quase ninguém faz.
+Nenhuma das duas é trocar de modelo. Um modelo maior acerta mais gramática;
+estas duas dizem a ele *do que se está falando*, que é onde a tradução
+automática realmente erra.
+
+### 1. Descreva a atividade
+
+Em **⚙ → Contexto da atividade**, duas linhas bastam:
+
+> Visita de um engenheiro japonês da Honda à nossa fábrica de motores, para
+> auditoria de processo na linha de montagem. Vamos percorrer o chão de
+> fábrica e discutir índices de qualidade.
+
+Com isso o intérprete sabe o registro a usar, o domínio técnico e quem está
+falando com quem — e passa a desambiguar sozinho o que antes chutaria.
+
+### 2. Preencha o glossário
+
+Este é o passo que quase ninguém faz.
 Toque em **用語集** e cadastre os termos que a tradução automática erraria:
 
 | Português | 日本語 | Observação |
@@ -121,6 +145,20 @@ Para fábrica de motores existe um atalho: o botão **Carregar termos de fábric
 de motores** cadastra de uma vez os termos de linha de montagem, qualidade e
 peças de motor (takt time,不良品, 公差, クランクシャフト, 現場…). Ele não
 apaga nem duplica o que você já tinha.
+
+---
+
+## Qual modelo usar
+
+O app já vem no `gemini-3.7-flash`. Em **⚙ → Testar conexão** a lista é
+preenchida pela própria API e ordenada da versão mais nova para a mais
+antiga, então ela acompanha os lançamentos sem precisar mexer no código.
+
+Vale usar um modelo **Pro**? Em geral não, para este uso. Numa conversa cara a
+cara a latência pesa mais que o último ponto de qualidade: um Pro acrescenta
+segundos a cada turno, e as falas aqui são curtas e já vêm com glossário e
+contexto. Se quiser comparar, troque no seletor e teste — mas ajuste primeiro
+o contexto e o glossário, que rendem mais.
 
 ---
 

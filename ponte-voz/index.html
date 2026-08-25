@@ -251,10 +251,14 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
     <p style="margin-top:-4px">Se preencher, a chave fica guardada no servidor e não é preciso digitá-la em cada celular. Veja <code>worker/</code> no repositório.</p>
 
     <label for="iModel">Modelo</label>
-    <select id="iModel"><option value="gemini-2.5-flash">gemini-2.5-flash</option></select>
+    <select id="iModel"><option value="gemini-3.7-flash">gemini-3.7-flash</option></select>
 
     <button class="btn sec" id="bTest">Testar conexão e listar modelos</button>
     <div id="testOut" style="margin-bottom:14px"></div>
+
+    <h3>Contexto da atividade</h3>
+    <p>Melhora a tradução mais do que trocar de modelo: descreva em duas linhas o que vai acontecer. O intérprete usa isso para escolher o registro e desambiguar termos técnicos.</p>
+    <textarea id="iContexto" rows="4" placeholder="Ex.: Visita de um engenheiro japonês da Honda à nossa fábrica de motores, para auditoria de processo na linha de montagem. Vamos percorrer o chão de fábrica e discutir índices de qualidade."></textarea>
 
     <h3>Microfone</h3>
     <p>Com fone de ouvido conectado, escolha o microfone do headset: perto da boca, ele funciona muito melhor com a linha rodando.</p>
@@ -527,8 +531,10 @@ const S = {
   set key(v){ localStorage.setItem('ponte.key', v) },
   get proxy(){ return (localStorage.getItem('ponte.proxy') || '').replace(/\/+$/,'') },
   set proxy(v){ localStorage.setItem('ponte.proxy', v) },
-  get model(){ return localStorage.getItem('ponte.model') || 'gemini-2.5-flash' },
+  get model(){ return localStorage.getItem('ponte.model') || 'gemini-3.7-flash' },
   set model(v){ localStorage.setItem('ponte.model', v) },
+  get contexto(){ return localStorage.getItem('ponte.contexto') || '' },
+  set contexto(v){ localStorage.setItem('ponte.contexto', v) },
   get rate(){ return parseFloat(localStorage.getItem('ponte.rate') || '0.95') },
   set rate(v){ localStorage.setItem('ponte.rate', String(v)) },
   get autoStop(){ return localStorage.getItem('ponte.autostop') !== '0' },
@@ -539,7 +545,7 @@ const S = {
   set estereo(v){ localStorage.setItem('ponte.estereo', v ? '1' : '0') },
   get ladoPT(){ return localStorage.getItem('ponte.ladopt') || 'L' },
   set ladoPT(v){ localStorage.setItem('ponte.ladopt', v) },
-  get modelTTS(){ return localStorage.getItem('ponte.modeltts') || 'gemini-2.5-flash-preview-tts' },
+  get modelTTS(){ return localStorage.getItem('ponte.modeltts') || 'gemini-2.5-flash-tts' },
   set modelTTS(v){ localStorage.setItem('ponte.modeltts', v) },
   get voz(){ return localStorage.getItem('ponte.voz') || 'Kore' },
   set voz(v){ localStorage.setItem('ponte.voz', v) },
@@ -749,6 +755,11 @@ function prompt(de, para){
     'Você é um intérprete simultâneo profissional entre português do Brasil e japonês.',
     'O contexto é uma atividade de trabalho presencial numa empresa brasileira que está recebendo um funcionário japonês.',
     '',
+    ...(S.contexto
+      ? ['Descrição desta atividade, escrita por quem organizou — use para escolher o',
+         'registro, entender de que assunto se fala e desambiguar termos técnicos:',
+         S.contexto, '']
+      : []),
     'O áudio anexo contém uma fala em ' + LANG[de].nome + '.',
     '',
     'Faça, nesta ordem:',
@@ -1163,6 +1174,7 @@ document.querySelectorAll('.modal').forEach(m => {
 $('#bCfg').addEventListener('click', () => {
   $('#iKey').value   = S.key;
   $('#iProxy').value = S.proxy;
+  $('#iContexto').value = S.contexto;
   $('#iRate').value  = S.rate;
   $('#rateVal').textContent = String(S.rate).replace('.', ',');
   $('#iAuto').checked = S.autoStop;
@@ -1179,6 +1191,7 @@ $('#bGloss').addEventListener('click',  () => { pintarGloss();  abrir('#mGloss')
 $('#bHist').addEventListener('click',   () => { pintarHist();   abrir('#mHist') });
 $('#bPhrase').addEventListener('click', () => { liberarAudio(); abrir('#mPhrase') });
 
+$('#iContexto').addEventListener('input', e => S.contexto = e.target.value.trim());
 $('#iKey').addEventListener('input',   e => S.key = e.target.value.trim());
 $('#iProxy').addEventListener('input', e => S.proxy = e.target.value.trim());
 $('#iModel').addEventListener('change',e => S.model = e.target.value);
@@ -1199,6 +1212,27 @@ function opcaoTTS(m){
   s.value = m;
 }
 
+/* Ordem alfabética colocaria gemini-2.5-flash à frente de gemini-3.7-flash e
+   o app escolheria sozinho o modelo mais velho. Ordena por versão, do mais
+   novo para o mais antigo. */
+function versaoDe(n){
+  const m = /gemini-(\d+)(?:\.(\d+))?/.exec(n);
+  return m ? parseFloat(m[1] + '.' + (m[2] || '0')) : 0;
+}
+function porVersao(a, b){
+  const d = versaoDe(b) - versaoDe(a);
+  return d !== 0 ? d : a.localeCompare(b);
+}
+/** Mais novo entre os "flash": numa conversa cara a cara, latência pesa mais
+ *  que o último ponto de qualidade. Evita lite (fraco) e tts (não traduz). */
+function melhorTraducao(lista){
+  return lista.find(n => /flash/.test(n) && !/lite|tts/.test(n)) || lista[0];
+}
+/** Prefere modelo de voz estável ao marcado como preview. */
+function melhorVoz(lista){
+  return lista.find(n => !/preview/.test(n)) || lista[0];
+}
+
 $('#bTest').addEventListener('click', async () => {
   const b = $('#bTest'), out = $('#testOut');
   b.disabled = true; b.textContent = 'Testando…'; out.innerHTML = '';
@@ -1210,13 +1244,13 @@ $('#bTest').addEventListener('click', async () => {
       .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
       .map(m => m.name.replace('models/',''))
       .filter(n => /gemini/.test(n) && !/embedding|aqa|image/.test(n))
-      .sort();
+      .sort(porVersao);
 
     const lista = todos.filter(n => !/tts/.test(n));
     const s = $('#iModel');
     s.innerHTML = '';
     for(const n of lista) s.add(new Option(n, n));
-    opcaoModelo(lista.includes(S.model) ? S.model : (lista.find(n => /flash/.test(n)) || lista[0]));
+    opcaoModelo(lista.includes(S.model) ? S.model : melhorTraducao(lista));
     S.model = s.value;
 
     // modelos de voz para o modo fone, preenchidos pela própria API para
@@ -1226,7 +1260,7 @@ $('#bTest').addEventListener('click', async () => {
     if(vozes.length){
       st.innerHTML = '';
       for(const n of vozes) st.add(new Option(n, n));
-      opcaoTTS(vozes.includes(S.modelTTS) ? S.modelTTS : vozes[0]);
+      opcaoTTS(vozes.includes(S.modelTTS) ? S.modelTTS : melhorVoz(vozes));
       S.modelTTS = st.value;
     }
 
