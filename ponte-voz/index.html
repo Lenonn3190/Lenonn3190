@@ -256,6 +256,11 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
     <button class="btn sec" id="bTest">Testar conexão e listar modelos</button>
     <div id="testOut" style="margin-bottom:14px"></div>
 
+    <h3>Microfone</h3>
+    <p>Com fone de ouvido conectado, escolha o microfone do headset: perto da boca, ele funciona muito melhor com a linha rodando.</p>
+    <select id="iMic"><option value="">Microfone padrão do aparelho</option></select>
+    <button class="btn sec" id="bMics">Procurar microfones</button>
+
     <h3>Vozes instaladas neste aparelho</h3>
     <div id="voiceOut" style="margin-bottom:8px"></div>
     <p>Se faltar a voz em japonês, instale o pacote de idioma do aparelho (Android: <em>Configurações → Sistema → Idiomas → Conversão de texto em voz</em>). Sem ela o texto ainda aparece na tela, mas não é falado.</p>
@@ -283,6 +288,8 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
     </div>
     <input type="text" id="gNote" placeholder="Observação (opcional): não traduzir, é nome próprio" style="margin-top:10px" />
     <button class="btn" id="bGlossAdd">Adicionar termo</button>
+    <button class="btn sec" id="bGlossFab">Carregar termos de fábrica de motores</button>
+    <p style="margin-top:-2px" id="glossFabInfo">Termos de linha de montagem, qualidade e peças de motor. Não apaga o que você já cadastrou.</p>
     <div id="glossList"></div>
   </div>
 </div></div>
@@ -303,7 +310,8 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
 <div class="modal" id="mPhrase"><div class="sheet">
   <header><h2>📖 Frases essenciais</h2><button data-close>×</button></header>
   <div class="body">
-    <p>Funcionam sem internet e sem chave de API. Toque em <b>Falar</b> para o aparelho pronunciar em japonês.</p>
+    <p>Funcionam sem internet e sem chave de API. Toque em <b>🔊</b> para o aparelho pronunciar em japonês.</p>
+    <input type="text" id="phBusca" placeholder="Buscar em português, japonês ou romaji…" autocomplete="off" />
     <div id="phraseList"></div>
   </div>
 </div></div>
@@ -335,7 +343,103 @@ const ERRO = {
        geral:'失敗しました。もう一度お試しください。' }
 };
 
+/* Frases prontas, agrupadas. Funcionam sem internet e sem chave de API:
+   é o plano de contingência quando a rede cai ou o barulho da linha
+   impede a transcrição. Segurança vem primeiro de propósito — é o que
+   alguém precisa achar com pressa. */
 const FRASES = [
+['⚠ Segurança', [
+  ['Segurança em primeiro lugar.','安全第一です','anzen daiichi desu'],
+  ['Cuidado!','危ない！','abunai!'],
+  ['Pare a linha, por favor!','ラインを止めてください！','rain o tomete kudasai!'],
+  ['Onde fica a parada de emergência?','非常停止ボタンはどこですか？','hijou teishi botan wa doko desu ka?'],
+  ['A saída de emergência é por ali.','非常口はあちらです','hijouguchi wa achira desu'],
+  ['Houve um acidente. Chame ajuda.','事故が発生しました。応援を呼んでください','jiko ga hassei shimashita. ouen o yonde kudasai'],
+  ['Use o capacete, por favor.','ヘルメットを着用してください','herumetto o chakuyou shite kudasai'],
+  ['Use os óculos de proteção.','保護メガネを着用してください','hogo megane o chakuyou shite kudasai'],
+  ['Use o protetor auricular.','耳栓をしてください','mimisen o shite kudasai'],
+  ['Use as luvas.','手袋をしてください','tebukuro o shite kudasai'],
+  ['Calce o sapato de segurança.','安全靴を履いてください','anzengutsu o haite kudasai'],
+  ['Área proibida, não entre.','立入禁止です','tachiiri kinshi desu'],
+  ['Não toque na máquina em movimento.','稼働中の機械に触れないでください','kadouchuu no kikai ni furenaide kudasai'],
+  ['Atenção ao piso.','足元にご注意ください','ashimoto ni gochuui kudasai']
+]],
+['🏭 Linha e produção', [
+  ['Esta é a linha de montagem do motor.','これはエンジンの組立ラインです','kore wa enjin no kumitate rain desu'],
+  ['Qual é o tempo de ciclo?','サイクルタイムはどのくらいですか？','saikuru taimu wa dono kurai desu ka?'],
+  ['Qual é o takt time?','タクトタイムはどのくらいですか？','takuto taimu wa dono kurai desu ka?'],
+  ['Quantas peças por hora?','一時間に何個生産しますか？','ichijikan ni nanko seisan shimasu ka?'],
+  ['Qual é a meta de produção de hoje?','今日の生産目標は何台ですか？','kyou no seisan mokuhyou wa nandai desu ka?'],
+  ['Este é o processo seguinte.','これが次の工程です','kore ga tsugi no koutei desu'],
+  ['A linha está parada.','ラインが止まっています','rain ga tomatte imasu'],
+  ['Vamos fazer a troca de ferramental.','段取り替えをします','dandorigae o shimasu'],
+  ['O andon acendeu.','アンドンが点灯しました','andon ga tentou shimashita'],
+  ['Qual é a taxa de operação?','稼働率はどのくらいですか？','kadouritsu wa dono kurai desu ka?'],
+  ['Vamos verificar o kanban.','かんばんを確認します','kanban o kakunin shimasu'],
+  ['Qual é o estoque atual?','現在の在庫はどのくらいですか？','genzai no zaiko wa dono kurai desu ka?']
+]],
+['🔍 Qualidade e inspeção', [
+  ['Vamos fazer a inspeção.','検査をします','kensa o shimasu'],
+  ['Este é o posto de inspeção.','これが検査工程です','kore ga kensa koutei desu'],
+  ['Inspeção final.','最終検査','saishuu kensa'],
+  ['Isto é uma peça defeituosa.','これは不良品です','kore wa furyouhin desu'],
+  ['Isto está conforme.','これは良品です','kore wa ryouhin desu'],
+  ['Qual é a taxa de defeitos?','不良率はどのくらいですか？','furyouritsu wa dono kurai desu ka?'],
+  ['Vamos medir a dimensão.','寸法を測定します','sunpou o sokutei shimasu'],
+  ['Está fora da tolerância.','公差外です','kousagai desu'],
+  ['Está dentro da tolerância.','公差内です','kousanai desu'],
+  ['Qual é a causa raiz?','真因は何ですか？','shin\'in wa nan desu ka?'],
+  ['Vamos fazer a análise dos cinco porquês.','なぜなぜ分析をしましょう','nazenaze bunseki o shimashou'],
+  ['Precisamos de uma contramedida.','対策が必要です','taisaku ga hitsuyou desu'],
+  ['Este é o padrão de trabalho.','これが標準作業です','kore ga hyoujun sagyou desu'],
+  ['Existe dispositivo à prova de erro?','ポカヨケはありますか？','pokayoke wa arimasu ka?'],
+  ['Vamos registrar a rastreabilidade.','トレーサビリティを記録します','toreesabiritii o kiroku shimasu']
+]],
+['⚙ Peças do motor', [
+  ['cabeçote','シリンダーヘッド','shirindaa heddo'],
+  ['bloco do motor','シリンダーブロック','shirindaa burokku'],
+  ['pistão','ピストン','pisuton'],
+  ['virabrequim','クランクシャフト','kurankushafuto'],
+  ['comando de válvulas','カムシャフト','kamushafuto'],
+  ['válvula','バルブ','barubu'],
+  ['biela','コンロッド','konroddo'],
+  ['junta / gaxeta','ガスケット','gasuketto'],
+  ['cárter de óleo','オイルパン','oirupan'],
+  ['vela de ignição','スパークプラグ','supaaku puragu'],
+  ['injetor','インジェクター','injekutaa'],
+  ['correia dentada','タイミングベルト','taimingu beruto'],
+  ['bomba d\'água','ウォーターポンプ','wootaa ponpu'],
+  ['parafuso / porca','ボルト・ナット','boruto / natto']
+]],
+['🔧 Ferramentas e medição', [
+  ['Qual é o torque de aperto?','締め付けトルクはいくつですか？','shimetsuke toruku wa ikutsu desu ka?'],
+  ['Use a chave de torque.','トルクレンチを使ってください','toruku renchi o tsukatte kudasai'],
+  ['Vamos medir com o paquímetro.','ノギスで測ります','nogisu de hakarimasu'],
+  ['Vamos medir com o micrômetro.','マイクロメータで測ります','maikuromeeta de hakarimasu'],
+  ['Este é o dispositivo de fixação.','これが治具です','kore ga jigu desu'],
+  ['A prensa faz o encaixe sob pressão.','プレスで圧入します','puresu de atsunyuu shimasu'],
+  ['Vamos calibrar o instrumento.','校正をします','kousei o shimasu']
+]],
+['🛠 Problemas e manutenção', [
+  ['A máquina quebrou.','機械が故障しました','kikai ga koshou shimashita'],
+  ['Há vazamento de óleo.','オイル漏れがあります','oiru more ga arimasu'],
+  ['Está com ruído estranho.','異音がします','ion ga shimasu'],
+  ['A vibração está alta.','振動が大きいです','shindou ga ookii desu'],
+  ['Está superaquecendo.','オーバーヒートしています','oobaahiito shite imasu'],
+  ['Chame a manutenção, por favor.','保全を呼んでください','hozen o yonde kudasai'],
+  ['Quando foi a última manutenção preventiva?','前回の予防保全はいつでしたか？','zenkai no yobou hozen wa itsu deshita ka?'],
+  ['Precisa trocar a peça.','部品交換が必要です','buhin koukan ga hitsuyou desu'],
+  ['Quanto tempo leva o reparo?','修理にどのくらいかかりますか？','shuuri ni dono kurai kakarimasu ka?']
+]],
+['📈 Kaizen e chão de fábrica', [
+  ['Vamos ao chão de fábrica.','現場に行きましょう','genba ni ikimashou'],
+  ['Vamos fazer um kaizen.','改善をしましょう','kaizen o shimashou'],
+  ['Isso é desperdício.','それは無駄です','sore wa muda desu'],
+  ['Organização e ordem.','整理整頓','seiri seiton'],
+  ['Vamos padronizar este processo.','この工程を標準化しましょう','kono koutei o hyoujunka shimashou'],
+  ['Pode me mostrar como se faz?','やり方を見せていただけますか？','yarikata o misete itadakemasu ka?']
+]],
+['💬 Conversa', [
   ['Bom dia!','おはようございます','ohayou gozaimasu'],
   ['Muito prazer.','はじめまして','hajimemashite'],
   ['Obrigado!','ありがとうございます','arigatou gozaimasu'],
@@ -351,7 +455,6 @@ const FRASES = [
   ['Vamos fazer uma pausa.','休憩しましょう','kyuukei shimashou'],
   ['Terminamos por hoje.','今日はここまでです','kyou wa koko made desu'],
   ['Por aqui, por favor.','こちらへどうぞ','kochira e douzo'],
-  ['Cuidado!','危ない！','abunai!'],
   ['Tudo bem?','大丈夫ですか？','daijoubu desu ka?'],
   ['Está tudo certo.','大丈夫です','daijoubu desu'],
   ['Preciso de ajuda.','手伝ってください','tetsudatte kudasai'],
@@ -364,6 +467,34 @@ const FRASES = [
   ['Vou anotar.','メモします','memo shimasu'],
   ['Até amanhã!','また明日','mata ashita'],
   ['Bom trabalho hoje!','お疲れさまでした','otsukaresama deshita']
+]]];
+
+/* Termos que a tradução automática erra numa fábrica de motores. Entram no
+   glossário por um botão, para não obrigar a digitar tudo à mão. */
+const GLOSSARIO_FABRICA = [
+  { pt:'linha de montagem', ja:'組立ライン',   note:'' },
+  { pt:'inspeção',          ja:'検査',         note:'inspeção de qualidade' },
+  { pt:'processo',          ja:'工程',         note:'etapa da linha, não "processo" jurídico' },
+  { pt:'tempo de ciclo',    ja:'サイクルタイム', note:'' },
+  { pt:'takt time',         ja:'タクトタイム',  note:'não traduzir para "ritmo"' },
+  { pt:'peça defeituosa',   ja:'不良品',       note:'' },
+  { pt:'peça conforme',     ja:'良品',         note:'' },
+  { pt:'taxa de defeitos',  ja:'不良率',       note:'' },
+  { pt:'tolerância',        ja:'公差',         note:'tolerância dimensional' },
+  { pt:'torque de aperto',  ja:'締め付けトルク', note:'' },
+  { pt:'dispositivo de fixação', ja:'治具',    note:'gabarito, jig' },
+  { pt:'troca de ferramental',   ja:'段取り替え', note:'setup / changeover' },
+  { pt:'manutenção preventiva',  ja:'予防保全', note:'' },
+  { pt:'chão de fábrica',   ja:'現場',         note:'genba' },
+  { pt:'padrão de trabalho',ja:'標準作業',     note:'' },
+  { pt:'à prova de erro',   ja:'ポカヨケ',     note:'poka-yoke' },
+  { pt:'parada de emergência',   ja:'非常停止', note:'' },
+  { pt:'rastreabilidade',   ja:'トレーサビリティ', note:'' },
+  { pt:'cabeçote',          ja:'シリンダーヘッド', note:'peça do motor' },
+  { pt:'bloco do motor',    ja:'シリンダーブロック', note:'' },
+  { pt:'virabrequim',       ja:'クランクシャフト', note:'' },
+  { pt:'comando de válvulas',    ja:'カムシャフト', note:'' },
+  { pt:'biela',             ja:'コンロッド',   note:'' }
 ];
 
 /* ---------- estado persistido ---------- */
@@ -378,6 +509,8 @@ const S = {
   set rate(v){ localStorage.setItem('ponte.rate', String(v)) },
   get autoStop(){ return localStorage.getItem('ponte.autostop') !== '0' },
   set autoStop(v){ localStorage.setItem('ponte.autostop', v ? '1' : '0') },
+  get mic(){ return localStorage.getItem('ponte.mic') || '' },
+  set mic(v){ localStorage.setItem('ponte.mic', v) },
   get gloss(){ try{ return JSON.parse(localStorage.getItem('ponte.gloss') || '[]') }catch(e){ return [] } },
   set gloss(v){ localStorage.setItem('ponte.gloss', JSON.stringify(v)) },
   get hist(){ try{ return JSON.parse(localStorage.getItem('ponte.hist') || '[]') }catch(e){ return [] } },
@@ -417,12 +550,20 @@ function melhorMime(){
  */
 function gravar(onNivel){
   return new Promise(async (resolve, reject) => {
+    const pedido = { channelCount:1, echoCancellation:true, noiseSuppression:true, autoGainControl:true };
     let stream;
     try{
+      // Com headset, o microfone escolhido é o que salva a transcrição num
+      // ambiente barulhento. Se o aparelho salvo sumiu (fone desconectado),
+      // cai para o microfone padrão em vez de falhar.
       stream = await navigator.mediaDevices.getUserMedia({
-        audio:{ channelCount:1, echoCancellation:true, noiseSuppression:true, autoGainControl:true }
+        audio: S.mic ? Object.assign({ deviceId:{ exact:S.mic } }, pedido) : pedido
       });
-    }catch(e){ return reject(new Error('mic')); }
+    }catch(e){
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({ audio: pedido });
+      }catch(e2){ return reject(new Error('mic')); }
+    }
 
     const mime = melhorMime();
     let mr;
@@ -445,7 +586,7 @@ function gravar(onNivel){
     // 400 ms medem o ruído do ambiente e o limiar se ajusta a ele.
     const inicio = Date.now();
     const piso = [];
-    let limiar = 0.012, falou = false, quietoDesde = 0;
+    let limiar = 0.012, falou = false, quietoDesde = 0, picoRms = 0;
 
     const timer = setInterval(() => {
       an.getFloatTimeDomainData(buf);
@@ -453,12 +594,15 @@ function gravar(onNivel){
       for(let i=0;i<buf.length;i++) soma += buf[i]*buf[i];
       const rms = Math.sqrt(soma / buf.length);
       onNivel(Math.min(100, rms * 450));
+      if(rms > picoRms) picoRms = rms;
 
       const passado = Date.now() - inicio;
       if(passado < 400){ piso.push(rms); return; }
       if(piso.length){
         const medio = piso.reduce((a,b) => a+b, 0) / piso.length;
-        limiar = Math.max(0.012, medio * 2.5);
+        // O teto de 0,10 importa numa fábrica: com a linha rodando o piso de
+        // ruído é alto, e sem limite o limiar subiria acima da própria voz.
+        limiar = Math.min(0.10, Math.max(0.012, medio * 2.5));
         piso.length = 0;
       }
 
@@ -467,8 +611,10 @@ function gravar(onNivel){
         if(!quietoDesde) quietoDesde = Date.now();
         else if(S.autoStop && Date.now() - quietoDesde > 1600) parar();
       }
-      else if(S.autoStop && passado > 6000){
-        parar();   // ninguém falou: não fica gravando à toa até os 30 s
+      else if(S.autoStop && passado > 6000 && picoRms < 0.02){
+        // Corta só quando não houve som algum. Se há sinal e o limiar é que
+        // ficou alto demais, deixa gravando: cortar no meio da fala é pior.
+        parar();
       }
     }, 100);
 
@@ -789,6 +935,11 @@ async function turno(de){
   if(gravando === de){ if(gravar._parar) gravar._parar(); return; }
   if(gravando || ocupado) return;
 
+  // Sem isto, quem toca o botão enquanto a tradução anterior ainda está
+  // tocando grava a própria voz sintetizada junto com a fala — e ela entra
+  // na transcrição. Acontece o tempo todo numa conversa de ritmo normal.
+  if(window.speechSynthesis){ try{ speechSynthesis.cancel() }catch(e){} }
+
   if(!S.proxy && !S.key){ erro('pt','chave'); erro('ja','chave'); abrir('#mCfg'); return; }
 
   const para = OTHER[de];
@@ -897,6 +1048,7 @@ $('#bCfg').addEventListener('click', () => {
   $('#iAuto').checked = S.autoStop;
   opcaoModelo(S.model);
   pintarVozes();
+  pintarMics();
   abrir('#mCfg');
 });
 $('#bGloss').addEventListener('click',  () => { pintarGloss();  abrir('#mGloss') });
@@ -942,6 +1094,35 @@ $('#bTest').addEventListener('click', async () => {
   b.disabled = false; b.textContent = 'Testar conexão e listar modelos';
 });
 
+/* O navegador só revela o nome dos microfones depois que o usuário concede
+   a permissão uma vez — por isso é um botão, e não algo automático. */
+async function pintarMics(){
+  const s = $('#iMic');
+  let lista = [];
+  try{
+    lista = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind === 'audioinput');
+  }catch(e){}
+  s.innerHTML = '';
+  s.add(new Option('Microfone padrão do aparelho', ''));
+  lista.forEach((d, i) => s.add(new Option(d.label || ('Microfone ' + (i+1)), d.deviceId)));
+  s.value = [...s.options].some(o => o.value === S.mic) ? S.mic : '';
+  S.mic = s.value;
+  return lista.length;
+}
+$('#bMics').addEventListener('click', async () => {
+  const b = $('#bMics');
+  b.disabled = true; b.textContent = 'Procurando…';
+  // pede permissão só para conseguir os nomes, e libera o microfone em seguida
+  try{
+    const t = await navigator.mediaDevices.getUserMedia({ audio:true });
+    t.getTracks().forEach(x => x.stop());
+  }catch(e){}
+  const n = await pintarMics();
+  b.disabled = false;
+  b.textContent = n ? n + ' microfone(s) encontrado(s)' : 'Nenhum microfone encontrado';
+});
+$('#iMic').addEventListener('change', e => S.mic = e.target.value);
+
 function pintarVozes(){
   const out = $('#voiceOut');
   if(!out) return;
@@ -971,6 +1152,20 @@ function pintarGloss(){
     box.appendChild(it);
   });
 }
+// número vem da própria lista, para não desencontrar do conteúdo real
+$('#glossFabInfo').textContent =
+  'Adiciona ' + GLOSSARIO_FABRICA.length + ' termos de linha de montagem, qualidade e peças de ' +
+  'motor. Não apaga o que você já cadastrou.';
+$('#bGlossFab').addEventListener('click', () => {
+  const atual = S.gloss;
+  const jaTem = new Set(atual.map(t => t.pt.toLowerCase()));
+  const novos = GLOSSARIO_FABRICA.filter(t => !jaTem.has(t.pt.toLowerCase()));
+  S.gloss = atual.concat(novos);
+  pintarGloss();
+  const b = $('#bGlossFab');
+  b.textContent = novos.length ? novos.length + ' termos adicionados' : 'Todos já estavam cadastrados';
+  setTimeout(() => { b.textContent = 'Carregar termos de fábrica de motores'; }, 2500);
+});
 $('#bGlossAdd').addEventListener('click', () => {
   const pt = $('#gPT').value.trim(), ja = $('#gJA').value.trim(), note = $('#gNote').value.trim();
   if(!pt || !ja) return;
@@ -1016,19 +1211,36 @@ $('#bClear').addEventListener('click', () => {
 });
 
 /* ---------- frases essenciais ---------- */
-(function(){
+function pintarFrases(busca){
   const box = $('#phraseList');
-  for(const [pt, ja, rd] of FRASES){
-    const it = el('div','ph-item');
-    it.appendChild(el('div','a', pt));
-    it.appendChild(el('div','b', ja));
-    it.appendChild(el('div','r', rd));
-    const b = el('button','sp','🔊 Falar');
-    b.addEventListener('click', () => falar(ja, 'ja'));
-    it.appendChild(b);
-    box.appendChild(it);
+  box.innerHTML = '';
+  const q = (busca || '').trim().toLowerCase();
+  let achou = 0;
+
+  for(const [grupo, itens] of FRASES){
+    const casam = q
+      ? itens.filter(([pt, ja, rd]) =>
+          pt.toLowerCase().includes(q) || ja.includes(q) || rd.toLowerCase().includes(q))
+      : itens;
+    if(!casam.length) continue;
+
+    achou += casam.length;
+    box.appendChild(el('h3', null, grupo));
+    for(const [pt, ja, rd] of casam){
+      const it = el('div','ph-item');
+      it.appendChild(el('div','a', pt));
+      it.appendChild(el('div','b', ja));
+      it.appendChild(el('div','r', rd));
+      const b = el('button','sp','🔊 Falar');
+      b.addEventListener('click', () => { liberarAudio(); falar(ja, 'ja'); });
+      it.appendChild(b);
+      box.appendChild(it);
+    }
   }
-})();
+  if(!achou) box.appendChild(el('p', null, 'Nada encontrado para "' + busca + '".'));
+}
+$('#phBusca').addEventListener('input', e => pintarFrases(e.target.value));
+pintarFrases('');
 
 /* ==========================================================================
    7. INICIALIZAÇÃO

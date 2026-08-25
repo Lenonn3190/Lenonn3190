@@ -42,6 +42,8 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Erro de tradução | A mensagem de erro aparece **nas duas línguas** — o japonês entende o que houve |
 | Modelo descontinuado | O seletor de modelos é preenchido pela própria API, em ⚙ → *Testar conexão* |
 | Ficar sem internet | As frases essenciais funcionam offline, sem chave nenhuma |
+| App gravar a própria voz sintetizada | A síntese é cancelada ao começar a gravar |
+| Microfone ruim em ambiente barulhento | Dá para escolher o microfone do headset em ⚙ |
 | Tela apagando no meio da conversa | Wake Lock mantém o aparelho aceso |
 
 ---
@@ -112,6 +114,34 @@ Toque em **用語集** e cadastre os termos que a tradução automática erraria
 Cadastre também nomes próprios, códigos de peça e siglas internas. O intérprete
 é instruído a usar exatamente esses equivalentes, sempre.
 
+Para fábrica de motores existe um atalho: o botão **Carregar termos de fábrica
+de motores** cadastra de uma vez os termos de linha de montagem, qualidade e
+peças de motor (takt time,不良品, 公差, クランクシャフト, 現場…). Ele não
+apaga nem duplica o que você já tinha.
+
+---
+
+## Fone de ouvido
+
+**Dois fones separados num celular só não funciona.** Não é limitação do app:
+`speechSynthesis` não tem seleção de saída de áudio em navegador nenhum, e
+`setSinkId` (a API que faria isso) não existe no Chrome do Android nem no
+Safari do iPhone. O sistema manda todo o áudio para um destino só — conectou
+um fone, o outro para de ouvir.
+
+O que funciona:
+
+- **Divisor Y de 3,5 mm com dois fones.** Os dois ouvem tudo, inclusive a
+  língua que não entendem — que é só ruído inofensivo.
+- **Um headset com haste de microfone.** Numa fábrica de motores isso pesa
+  muito mais pelo lado da captação que da reprodução: o alto-falante do
+  celular não vai ser ouvido com a linha rodando de qualquer jeito, e o
+  microfone perto da boca é o que salva a transcrição.
+
+Com o fone conectado, vá em **⚙ → Microfone → Procurar microfones** e escolha
+o do headset. Sem isso o navegador pode continuar usando o microfone interno
+do aparelho.
+
 ---
 
 ## Chave compartilhada (opcional)
@@ -179,6 +209,8 @@ Zero dependências, zero build. Editar o `index.html` e dar push já publica.
 - Uma pessoa por vez. Se os dois falarem juntos, o áudio sai embolado.
 - Sem internet só as frases essenciais funcionam — tradução ao vivo precisa de rede.
 - A qualidade da transcrição cai bastante com ruído alto de fundo; num galpão,
-  fale perto do aparelho.
+  fale perto do aparelho ou use um headset com haste de microfone.
+- Dois fones de ouvido independentes num único celular não são possíveis
+  (veja a seção "Fone de ouvido").
 - A voz sintetizada depende do que está instalado no aparelho. O texto na tela
   não depende de nada e é sempre o plano de contingência.
