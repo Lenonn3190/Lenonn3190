@@ -265,6 +265,30 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
     <div id="voiceOut" style="margin-bottom:8px"></div>
     <p>Se faltar a voz em japonês, instale o pacote de idioma do aparelho (Android: <em>Configurações → Sistema → Idiomas → Conversão de texto em voz</em>). Sem ela o texto ainda aparece na tela, mas não é falado.</p>
 
+    <h3>Modo fone: cada um em um lado</h3>
+    <p>Com um par de fones Bluetooth, cada pessoa usa um lado e ouve <b>só a tradução dirigida a ela</b>. Exige os <b>dois</b> fones fora do estojo (um sozinho vira mono) e usa o TTS do Gemini, o que acrescenta 1-2 s por fala.</p>
+    <label style="display:flex;align-items:center;gap:10px;margin-bottom:13px">
+      <input type="checkbox" id="iEstereo" style="width:20px;height:20px;flex:none;margin:0" />
+      <span style="font-weight:600;color:var(--txt)">Separar as vozes por lado do fone</span>
+    </label>
+    <div class="row">
+      <div>
+        <label for="iLado">Lado de quem fala português</label>
+        <select id="iLado">
+          <option value="L">Esquerdo</option>
+          <option value="R">Direito</option>
+        </select>
+      </div>
+      <div>
+        <label for="iVoz">Voz</label>
+        <select id="iVoz"></select>
+      </div>
+    </div>
+    <button class="btn sec" id="bLados">Testar os lados</button>
+    <div id="ladoOut" style="margin-bottom:8px"></div>
+    <label for="iModelTTS">Modelo de voz</label>
+    <select id="iModelTTS"><option value="gemini-2.5-flash-preview-tts">gemini-2.5-flash-preview-tts</option></select>
+
     <h3>Ajustes</h3>
     <label for="iRate">Velocidade da fala: <span id="rateVal">0,95</span>×</label>
     <input type="range" id="iRate" min="0.6" max="1.3" step="0.05" value="0.95" style="width:100%;margin-bottom:16px" />
@@ -511,6 +535,14 @@ const S = {
   set autoStop(v){ localStorage.setItem('ponte.autostop', v ? '1' : '0') },
   get mic(){ return localStorage.getItem('ponte.mic') || '' },
   set mic(v){ localStorage.setItem('ponte.mic', v) },
+  get estereo(){ return localStorage.getItem('ponte.estereo') === '1' },
+  set estereo(v){ localStorage.setItem('ponte.estereo', v ? '1' : '0') },
+  get ladoPT(){ return localStorage.getItem('ponte.ladopt') || 'L' },
+  set ladoPT(v){ localStorage.setItem('ponte.ladopt', v) },
+  get modelTTS(){ return localStorage.getItem('ponte.modeltts') || 'gemini-2.5-flash-preview-tts' },
+  set modelTTS(v){ localStorage.setItem('ponte.modeltts', v) },
+  get voz(){ return localStorage.getItem('ponte.voz') || 'Kore' },
+  set voz(v){ localStorage.setItem('ponte.voz', v) },
   get gloss(){ try{ return JSON.parse(localStorage.getItem('ponte.gloss') || '[]') }catch(e){ return [] } },
   set gloss(v){ localStorage.setItem('ponte.gloss', JSON.stringify(v)) },
   get hist(){ try{ return JSON.parse(localStorage.getItem('ponte.hist') || '[]') }catch(e){ return [] } },
@@ -877,6 +909,94 @@ function falar(texto, lang){
   setTimeout(() => { try{ speechSynthesis.speak(u) }catch(e){} }, 60);
 }
 
+/* ---------- modo fone: cada pessoa em um lado ----------
+   Com os dois fones de um par TWS fora do estojo, o par fica em estéreo
+   normal: canal esquerdo num fone, direito no outro. Dá então para mandar a
+   tradução só para o ouvido de quem precisa dela.
+
+   speechSynthesis não passa pelo Web Audio, então não há como panoramizá-la.
+   Por isso este modo troca a síntese do aparelho pelo TTS do Gemini, que
+   devolve o áudio como dados e pode ser roteado por um StereoPannerNode.
+   Custa uma chamada a mais (~1-2 s) e por isso fica desligado por padrão. */
+
+async function ttsGemini(texto){
+  const corpo = {
+    contents:[{ parts:[{ text: texto }] }],
+    generationConfig:{
+      responseModalities:['AUDIO'],
+      speechConfig:{ voiceConfig:{ prebuiltVoiceConfig:{ voiceName:S.voz } } }
+    }
+  };
+  const ab = new AbortController();
+  const t = setTimeout(() => ab.abort(), 30000);
+  let r;
+  try{
+    r = await fetch(url('/models/' + S.modelTTS + ':generateContent'), {
+      method:'POST', headers:{ 'Content-Type':'application/json' },
+      body:JSON.stringify(corpo), signal:ab.signal
+    });
+  }finally{ clearTimeout(t); }
+  if(!r.ok) throw new Error('tts http ' + r.status);
+
+  const j = await r.json();
+  const parte = ((((j.candidates || [])[0] || {}).content || {}).parts || [])
+                  .find(p => p.inlineData || p.inline_data);
+  if(!parte) throw new Error('tts sem áudio');
+  const dado = parte.inlineData || parte.inline_data;
+
+  // o Gemini devolve PCM cru: audio/L16;codec=pcm;rate=24000
+  const m = /rate=(\d+)/.exec(dado.mimeType || dado.mime_type || '');
+  return pcmParaBuffer(dado.data, m ? parseInt(m[1], 10) : 24000);
+}
+
+function pcmParaBuffer(b64, taxa){
+  const bin = atob(b64);
+  const n = Math.floor(bin.length / 2);
+  const buf = ctx().createBuffer(1, n, taxa);
+  const ch = buf.getChannelData(0);
+  for(let i=0;i<n;i++){
+    let v = (bin.charCodeAt(i*2 + 1) << 8) | bin.charCodeAt(i*2);
+    if(v >= 0x8000) v -= 0x10000;
+    ch[i] = v / 32768;
+  }
+  return buf;
+}
+
+let tocandoAgora = null;
+function tocarNoLado(buffer, lado){
+  const ac = ctx();
+  if(tocandoAgora){ try{ tocandoAgora.stop() }catch(e){} }
+  const src = ac.createBufferSource();
+  src.buffer = buffer;
+  const pan = ac.createStereoPanner();
+  pan.pan.value = lado === 'L' ? -1 : 1;
+  src.connect(pan).connect(ac.destination);
+  src.start();
+  tocandoAgora = src;
+}
+
+function ladoDe(lang){
+  const pt = S.ladoPT === 'R' ? 'R' : 'L';
+  return lang === 'pt' ? pt : (pt === 'L' ? 'R' : 'L');
+}
+
+/** Entrega a tradução por voz: separada por lado quando o modo fone está
+ *  ligado, e caindo para a síntese do aparelho se o TTS falhar — melhor
+ *  falar nos dois ouvidos do que ficar mudo. */
+async function entregarVoz(texto, lang){
+  if(!texto) return;
+  if(!S.estereo || !window.AudioContext && !window.webkitAudioContext){ falar(texto, lang); return; }
+  if(!ctx().createStereoPanner){ falar(texto, lang); return; }
+  try{
+    status('Gerando voz…', 'busy');
+    tocarNoLado(await ttsGemini(texto), ladoDe(lang));
+  }catch(e){
+    falar(texto, lang);
+    status('Voz por lado indisponível — falando nos dois fones', 'bad');
+    return;
+  }
+}
+
 // iOS/Android só liberam a síntese depois de um toque do usuário
 let liberado = false;
 function liberarAudio(){
@@ -1002,8 +1122,8 @@ async function turno(de){
     };
     S.hist = S.hist.concat([reg]);
 
-    falar(esc(r.target_text), para);
-    status('Pronto');
+    await entregarVoz(esc(r.target_text), para);
+    if($('#status').className !== 'bad') status('Pronto');
 
   }catch(e){
     const tipo = e.message === 'chave' ? 'chave'
@@ -1047,6 +1167,10 @@ $('#bCfg').addEventListener('click', () => {
   $('#rateVal').textContent = String(S.rate).replace('.', ',');
   $('#iAuto').checked = S.autoStop;
   opcaoModelo(S.model);
+  $('#iEstereo').checked = S.estereo;
+  $('#iLado').value = S.ladoPT;
+  $('#iVoz').value = S.voz;
+  opcaoTTS(S.modelTTS);
   pintarVozes();
   pintarMics();
   abrir('#mCfg');
@@ -1069,6 +1193,11 @@ function opcaoModelo(m){
   if(![...s.options].some(o => o.value === m)) s.add(new Option(m, m));
   s.value = m;
 }
+function opcaoTTS(m){
+  const s = $('#iModelTTS');
+  if(![...s.options].some(o => o.value === m)) s.add(new Option(m, m));
+  s.value = m;
+}
 
 $('#bTest').addEventListener('click', async () => {
   const b = $('#bTest'), out = $('#testOut');
@@ -1077,21 +1206,85 @@ $('#bTest').addEventListener('click', async () => {
     const r = await fetch(url('/models', 'pageSize=200'));
     if(!r.ok) throw new Error('HTTP ' + r.status + ' — ' + (r.status === 403 || r.status === 400 ? 'chave inválida ou sem permissão' : 'servidor recusou'));
     const j = await r.json();
-    const lista = (j.models || [])
+    const todos = (j.models || [])
       .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
       .map(m => m.name.replace('models/',''))
-      .filter(n => /gemini/.test(n) && !/embedding|aqa|image|tts/.test(n))
+      .filter(n => /gemini/.test(n) && !/embedding|aqa|image/.test(n))
       .sort();
+
+    const lista = todos.filter(n => !/tts/.test(n));
     const s = $('#iModel');
     s.innerHTML = '';
     for(const n of lista) s.add(new Option(n, n));
     opcaoModelo(lista.includes(S.model) ? S.model : (lista.find(n => /flash/.test(n)) || lista[0]));
     S.model = s.value;
-    out.innerHTML = '<span class="pill ok">✓ Conectado — ' + lista.length + ' modelos disponíveis</span>';
+
+    // modelos de voz para o modo fone, preenchidos pela própria API para
+    // sobreviver a uma renomeação do modelo de TTS
+    const vozes = todos.filter(n => /tts/.test(n));
+    const st = $('#iModelTTS');
+    if(vozes.length){
+      st.innerHTML = '';
+      for(const n of vozes) st.add(new Option(n, n));
+      opcaoTTS(vozes.includes(S.modelTTS) ? S.modelTTS : vozes[0]);
+      S.modelTTS = st.value;
+    }
+
+    out.innerHTML = '<span class="pill ok">✓ Conectado — ' + lista.length + ' modelos de tradução</span>' +
+      '<span class="pill ' + (vozes.length ? 'ok' : 'no') + '">' +
+      (vozes.length ? '✓ ' + vozes.length + ' modelo(s) de voz' : '✗ Nenhum modelo de voz — modo fone indisponível') +
+      '</span>';
   }catch(e){
     out.innerHTML = '<span class="pill no">✗ ' + esc(e.message) + '</span>';
   }
   b.disabled = false; b.textContent = 'Testar conexão e listar modelos';
+});
+
+/* ---------- modo fone: interface ---------- */
+const VOZES_GEMINI = ['Kore','Puck','Zephyr','Charon','Fenrir','Aoede','Leda','Orus'];
+(function(){
+  const s = $('#iVoz');
+  for(const v of VOZES_GEMINI) s.add(new Option(v, v));
+})();
+$('#iEstereo').addEventListener('change', e => S.estereo = e.target.checked);
+$('#iLado').addEventListener('change',    e => S.ladoPT = e.target.value);
+$('#iVoz').addEventListener('change',     e => S.voz = e.target.value);
+$('#iModelTTS').addEventListener('change',e => S.modelTTS = e.target.value);
+
+/* Toca um tom em cada lado, um de cada vez. Se as duas pessoas ouvirem os
+   dois tons, os fones não estão separando os canais e o modo não serve —
+   melhor descobrir agora do que no meio da visita. */
+function tom(lado, hz, ms){
+  return new Promise(res => {
+    const ac = ctx();
+    const osc = ac.createOscillator(), g = ac.createGain(), pan = ac.createStereoPanner();
+    osc.frequency.value = hz; osc.type = 'sine';
+    pan.pan.value = lado === 'L' ? -1 : 1;
+    g.gain.setValueAtTime(0.0001, ac.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.25, ac.currentTime + 0.05);
+    g.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + ms/1000);
+    osc.connect(g).connect(pan).connect(ac.destination);
+    osc.start(); osc.stop(ac.currentTime + ms/1000);
+    setTimeout(res, ms + 250);
+  });
+}
+$('#bLados').addEventListener('click', async () => {
+  liberarAudio();
+  const b = $('#bLados'), out = $('#ladoOut');
+  if(!ctx().createStereoPanner){
+    out.innerHTML = '<span class="pill no">✗ Este navegador não separa canais</span>';
+    return;
+  }
+  b.disabled = true;
+  const ptEsq = S.ladoPT !== 'R';
+  out.innerHTML = '<span class="pill">Tocando à ESQUERDA…</span>';
+  await tom('L', 660, 700);
+  out.innerHTML = '<span class="pill">Tocando à DIREITA…</span>';
+  await tom('R', 440, 700);
+  out.innerHTML = '<span class="pill ok">Esquerdo = ' + (ptEsq ? 'português' : '日本語') +
+                  '</span><span class="pill ok">Direito = ' + (ptEsq ? '日本語' : 'português') +
+                  '</span><span class="pill">Se as duas pessoas ouviram os dois tons, os fones não separam os canais</span>';
+  b.disabled = false;
 });
 
 /* O navegador só revela o nome dos microfones depois que o usuário concede

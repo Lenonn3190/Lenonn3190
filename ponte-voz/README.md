@@ -45,6 +45,9 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | App gravar a própria voz sintetizada | A síntese é cancelada ao começar a gravar |
 | Microfone ruim em ambiente barulhento | Dá para escolher o microfone do headset em ⚙ |
 | Tela apagando no meio da conversa | Wake Lock mantém o aparelho aceso |
+| Cada um ouvir a língua que não entende | Modo fone separa as vozes por lado do par Bluetooth |
+| TTS do Gemini fora do ar | Cai para a síntese do aparelho e avisa, em vez de ficar mudo |
+| Modelo de voz descontinuado | O seletor de modelo de voz também é preenchido pela API |
 
 ---
 
@@ -123,16 +126,44 @@ apaga nem duplica o que você já tinha.
 
 ## Fone de ouvido
 
-**Dois fones separados num celular só não funciona.** Não é limitação do app:
-`speechSynthesis` não tem seleção de saída de áudio em navegador nenhum, e
-`setSinkId` (a API que faria isso) não existe no Chrome do Android nem no
-Safari do iPhone. O sistema manda todo o áudio para um destino só — conectou
-um fone, o outro para de ouvir.
+**Dois fones de pares diferentes, num celular só, não funciona.** Não é
+limitação do app: `setSinkId` (a API que escolheria a saída de áudio) não
+existe no Chrome do Android nem no Safari do iPhone, então não há como mandar
+áudios para dois aparelhos Bluetooth distintos.
 
-O que funciona:
+Com **um par só, um fone em cada pessoa**, a história é outra — veja abaixo.
+
+### Um par Bluetooth, um fone para cada pessoa
+
+Isto **funciona**, e é a melhor opção. Com os dois fones de um par TWS fora do
+estojo, o par fica em estéreo normal: o canal esquerdo toca num fone e o
+direito no outro. Dá então para mandar cada tradução só para o ouvido de quem
+precisa dela — você não leva japonês no ouvido, ele não leva português.
+
+Ligue em **⚙ → Modo fone → Separar as vozes por lado do fone**, diga qual lado
+é o seu e toque em **Testar os lados**: o app toca um tom à esquerda e outro à
+direita. *Se as duas pessoas ouvirem os dois tons, os fones do seu par não
+separam os canais* e o modo não serve — melhor descobrir isso antes da visita.
+
+Três coisas a saber:
+
+- **Os dois fones precisam estar fora do estojo.** Um fone sozinho entra em
+  modo mono e passa a tocar a mistura dos dois canais.
+- **Custa 1-2 s a mais por fala.** `speechSynthesis` não passa pelo Web Audio,
+  então não há como panoramizá-la; este modo usa o TTS do Gemini, que devolve
+  o áudio como dados e pode ser roteado. Por isso vem desligado por padrão.
+- **Não use o microfone dos fones neste modo.** Ao ativar o microfone
+  Bluetooth, o aparelho troca o perfil de áudio para mono e a separação de
+  canais desaparece. Deixe o microfone no do celular ou num headset com fio.
+
+Se o TTS falhar, o app fala pela síntese do aparelho (nos dois fones) e avisa
+na barra de status, em vez de ficar mudo.
+
+### Alternativas sem separação por lado
 
 - **Divisor Y de 3,5 mm com dois fones.** Os dois ouvem tudo, inclusive a
-  língua que não entendem — que é só ruído inofensivo.
+  língua que não entendem — que é só ruído inofensivo. Não precisa do TTS do
+  Gemini, então não tem o custo de latência.
 - **Um headset com haste de microfone.** Numa fábrica de motores isso pesa
   muito mais pelo lado da captação que da reprodução: o alto-falante do
   celular não vai ser ouvido com a linha rodando de qualquer jeito, e o
@@ -210,7 +241,7 @@ Zero dependências, zero build. Editar o `index.html` e dar push já publica.
 - Sem internet só as frases essenciais funcionam — tradução ao vivo precisa de rede.
 - A qualidade da transcrição cai bastante com ruído alto de fundo; num galpão,
   fale perto do aparelho ou use um headset com haste de microfone.
-- Dois fones de ouvido independentes num único celular não são possíveis
-  (veja a seção "Fone de ouvido").
+- Dois fones de **pares diferentes** num único celular não são possíveis; um
+  par com um fone para cada pessoa funciona (veja "Fone de ouvido").
 - A voz sintetizada depende do que está instalado no aparelho. O texto na tela
   não depende de nada e é sempre o plano de contingência.
