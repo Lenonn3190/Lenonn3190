@@ -370,10 +370,12 @@ const OTHER = { pt:'ja', ja:'pt' };
 const ERRO = {
   pt:{ mudo:'Não consegui ouvir nada. Fale mais perto do aparelho.',
        rede:'Sem conexão com o servidor de tradução.',
+       lento:'O serviço de tradução está sobrecarregado agora. Tente de novo.',
        chave:'Falta configurar a chave da API. Toque em ⚙.',
        geral:'Falhou. Toque no microfone e tente de novo.' },
   ja:{ mudo:'音声が聞き取れませんでした。もう一度お願いします。',
        rede:'翻訳サーバーに接続できません。',
+       lento:'翻訳サービスが混み合っています。もう一度お試しください。',
        chave:'APIキーが未設定です。⚙ を押してください。',
        geral:'失敗しました。もう一度お試しください。' }
 };
@@ -560,6 +562,10 @@ const S = {
      qual dos dois a chave aceita e guarda aqui. */
   get auth(){ return lerCfg('ponte.auth') || 'header' },
   set auth(v){ gravarCfg('ponte.auth', v) },
+  /* 'baixo' pede thinkingLevel LOW (bem mais rápido); vira 'padrao' sozinho
+     se o modelo escolhido não conhecer o parâmetro. */
+  get raciocinio(){ return lerCfg('ponte.raciocinio') || 'baixo' },
+  set raciocinio(v){ gravarCfg('ponte.raciocinio', v) },
   get key(){ return lerCfg('ponte.key') || '' },
   set key(v){ gravarCfg('ponte.key', v) },
   get proxy(){ return (lerCfg('ponte.proxy') || '').replace(/\/+$/,'') },
@@ -581,7 +587,10 @@ const S = {
   set estereo(v){ gravarCfg('ponte.estereo', v ? '1' : '0') },
   get ladoPT(){ return lerCfg('ponte.ladopt') || 'L' },
   set ladoPT(v){ gravarCfg('ponte.ladopt', v) },
-  get modelTTS(){ return lerCfg('ponte.modeltts') || 'gemini-2.5-flash-tts' },
+  /* Verificado contra a API: "gemini-2.5-flash-tts" não existe (404); o nome
+     real carrega o "preview". Como os modelos de voz são todos preview, o
+     seletor em ⚙ é quem manda — este valor é só o ponto de partida. */
+  get modelTTS(){ return lerCfg('ponte.modeltts') || 'gemini-2.5-flash-preview-tts' },
   set modelTTS(v){ gravarCfg('ponte.modeltts', v) },
   get voz(){ return lerCfg('ponte.voz') || 'Kore' },
   set voz(v){ gravarCfg('ponte.voz', v) },
@@ -871,58 +880,132 @@ function pedido(caminho, query, modo){
 }
 
 /**
+ * Faz a chamada descobrindo, na primeira vez, como esta chave aceita ser
+ * enviada. O cabeçalho x-goog-api-key exige preflight de CORS, e há
+ * ambientes em que ele é barrado — nesse caso o navegador lança TypeError
+ * sem nunca chegar ao Google, que é indistinguível de "sem internet".
+ *
+ * Qualquer resposta HTTP, mesmo 4xx, prova que o transporte funciona: o modo
+ * é gravado e as chamadas seguintes já vão direto nele. Só um TypeError faz
+ * tentar o outro modo.
+ */
+async function chamarApi(caminho, init, query){
+  const modos = S.proxy ? [null]
+              : (S.auth === 'query' ? ['query','header'] : ['header','query']);
+  let ultimo = null, tentados = [];
+
+  for(const modo of modos){
+    const p = pedido(caminho, query, modo);
+    tentados.push(p.alvo.replace(/([?&]key=)[^&]+/, '$1…'));
+    try{
+      const r = await fetch(p.alvo, Object.assign({}, init, {
+        headers: Object.assign({}, (init && init.headers) || {}, p.cab)
+      }));
+      if(modo && modo !== S.auth) S.auth = modo;
+      return r;
+    }catch(e){
+      if(e.name === 'AbortError') throw e;   // tempo esgotado não é escolha de modo
+      ultimo = e;
+    }
+  }
+
+  const e = new Error('rede');
+  e.detalhe = 'Nenhuma das tentativas chegou ao servidor:\n\n' + tentados.join('\n') +
+    '\n\nCausas prováveis, nesta ordem:\n' +
+    '• o aparelho está sem internet;\n' +
+    '• o campo "Servidor intermediário" em ⚙ aponta para um endereço que não existe ' +
+    '(deixe vazio se você não publicou o proxy);\n' +
+    '• a rede da empresa bloqueia googleapis.com.\n\n' +
+    (ultimo ? 'Erro do navegador: ' + ultimo.message : '');
+  throw e;
+}
+
+/**
  * Pergunta à API quais modelos esta chave realmente tem e adota um deles.
  * Devolve o nome adotado, ou null se não houver troca a fazer.
  */
-async function trocarPorModeloValido(){
+let cacheModelos = null;      // catálogo real da chave, buscado uma vez
+let jaTentados = [];          // modelos que falharam nesta fala
+
+function extrairModelos(j){
+  return (j.models || [])
+    .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map(m => m.name.replace('models/',''))
+    .filter(n => /gemini/.test(n) && !/embedding|aqa|image|tts|computer-use/.test(n))
+    .sort(porVersao);
+}
+
+async function catalogo(){
+  if(cacheModelos) return cacheModelos;
   try{
-    const { j, modo } = await listarModelos();
-    if(modo && modo !== S.auth) S.auth = modo;
-    const lista = (j.models || [])
-      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
-      .map(m => m.name.replace('models/',''))
-      .filter(n => /gemini/.test(n) && !/embedding|aqa|image|tts/.test(n))
-      .sort(porVersao);
-    if(!lista.length) return null;
-    const novo = melhorTraducao(lista);
-    if(!novo || novo === S.model) return null;
-    S.model = novo;
-    return novo;
-  }catch(e){ return null; }
+    const { j } = await listarModelos();
+    cacheModelos = extrairModelos(j);
+  }catch(e){ cacheModelos = []; }
+  return cacheModelos;
+}
+
+/**
+ * Escolhe outro modelo quando o atual não serve.
+ *
+ * Um modelo pode estar indisponível para a conta (404) ou simplesmente
+ * sobrecarregado (503) — medido: gemini-flash-latest e gemini-3.7-flash
+ * respondiam 503 enquanto gemini-3.6-flash respondia em 3 s com a mesma
+ * chave. Como não há como saber de fora qual está de pé, o app desce a
+ * lista até achar um que responda.
+ */
+async function trocarPorModeloValido(){
+  const lista = await catalogo();
+  const livre = lista.filter(n => n !== S.model && jaTentados.indexOf(n) < 0);
+  if(!livre.length) return null;
+  const novo = melhorTraducao(livre);
+  if(!novo) return null;
+  jaTentados.push(S.model);
+  S.model = novo;
+  return novo;
 }
 
 async function traduzir(b64Wav, de, para){
-  const corpo = {
+  // Montado a cada tentativa: o modelo e o modo de raciocínio podem mudar
+  // no meio, e a repetição precisa levar os valores novos.
+  const montar = () => ({
     contents:[{ parts:[
       { text: prompt(de, para) },
       { inline_data:{ mime_type:'audio/wav', data:b64Wav } }
     ]}],
-    generationConfig:{
+    generationConfig:Object.assign({
       temperature:0.15,
       responseMimeType:'application/json',
       responseSchema:ESQUEMA
     },
+    /* Medido contra a API: no gemini-3.6-flash a mesma tradução leva 6,1 s
+       com o raciocínio padrão e 2,4 s em LOW. Numa conversa cara a cara
+       esses 3,7 s pesam mais que o ganho de qualidade, que aqui é nulo —
+       a fala é curta e já vem com glossário e contexto. Modelos antigos
+       não conhecem o parâmetro e respondem 400; nesse caso ele é retirado. */
+    S.raciocinio === 'baixo' ? { thinkingConfig:{ thinkingLevel:'LOW' } } : {}),
     // Conversa de trabalho não deve esbarrar em filtro de conteúdo. BLOCK_NONE
     // é recusado com 400 em contas não liberadas, então fica no nível mais
     // permissivo que toda chave aceita.
     safetySettings:['HARM_CATEGORY_HARASSMENT','HARM_CATEGORY_HATE_SPEECH',
                     'HARM_CATEGORY_SEXUALLY_EXPLICIT','HARM_CATEGORY_DANGEROUS_CONTENT']
                    .map(c => ({ category:c, threshold:'BLOCK_ONLY_HIGH' }))
-  };
+  });
 
   let ultimo;
+  jaTentados = [];
 
-  for(let tentativa = 0; tentativa < 2; tentativa++){
-    // dentro do laço de propósito: se a tentativa anterior trocou o modelo,
-    // a repetição precisa apontar para o novo
-    const { alvo, cab } = pedido('/models/' + S.model + ':generateContent');
+  // Até quatro voltas: erro de rede, modelo indisponível e modelo
+  // sobrecarregado são causas diferentes, e cada troca de modelo consome uma.
+  for(let tentativa = 0; tentativa < 4; tentativa++){
     const ab = new AbortController();
-    const t = setTimeout(() => ab.abort(), 45000);
+    const t = setTimeout(() => ab.abort(), 30000);
     try{
-      const r = await fetch(alvo, {
+      // o caminho é montado a cada volta: se a tentativa anterior trocou o
+      // modelo, a repetição precisa apontar para o novo
+      const r = await chamarApi('/models/' + S.model + ':generateContent', {
         method:'POST',
-        headers:Object.assign({ 'Content-Type':'application/json' }, cab),
-        body:JSON.stringify(corpo),
+        headers:{ 'Content-Type':'application/json' },
+        body:JSON.stringify(montar()),
         signal:ab.signal
       });
       clearTimeout(t);
@@ -932,21 +1015,35 @@ async function traduzir(b64Wav, de, para){
         if(r.status === 400 && /API key|API_KEY/i.test(txt)) throw new Error('chave');
         if(r.status === 403) throw new Error('chave');
 
-        // 404 aqui quer dizer "esta conta não tem esse modelo" — a
-        // disponibilidade varia por chave. Em vez de devolver o erro,
-        // pergunta à API quais modelos existem, troca e refaz a chamada.
-        if(r.status === 404 && tentativa === 0 && !S.proxy){
-          const trocou = await trocarPorModeloValido();
+        // Modelo antigo não conhece thinkingLevel e recusa a chamada inteira.
+        if(r.status === 400 && /invalid argument/i.test(txt) && S.raciocinio === 'baixo'){
+          S.raciocinio = 'padrao';
+          ultimo = new Error('sem controle de raciocínio neste modelo');
+          continue;
+        }
+
+        // 404 aqui quer dizer "esta conta não tem esse modelo", e a lista de
+        // modelos não basta: a API anuncia modelos que depois recusa com
+        // "no longer available to new users". Quando ela sugere o substituto
+        // na própria mensagem, esse é o palpite mais confiável que existe.
+        if(r.status === 404 && tentativa === 0){
+          const sugerido = (/use\s+models\/([A-Za-z0-9._-]+)/i.exec(txt) || [])[1];
+          const trocou = sugerido && sugerido !== S.model
+                       ? (S.model = sugerido)
+                       : (S.proxy ? null : await trocarPorModeloValido());
           if(trocou){
             ultimo = new Error('modelo trocado para ' + trocou);
             continue;
           }
         }
 
-        // 429 e 5xx merecem uma segunda tentativa
-        if((r.status === 429 || r.status >= 500) && tentativa === 0){
+        // 503 é modelo sobrecarregado: insistir no mesmo raramente adianta,
+        // e outro modelo da mesma conta costuma estar de pé.
+        if((r.status === 503 || r.status === 429 || r.status >= 500) && tentativa < 3){
           ultimo = new Error('http ' + r.status);
-          await new Promise(res => setTimeout(res, 1200));
+          const outro = await trocarPorModeloValido();
+          if(!outro) await new Promise(res => setTimeout(res, 1200));
+          else status('Modelo ocupado — tentando ' + outro + '…', 'busy');
           continue;
         }
         const e = new Error('http ' + r.status);
@@ -964,7 +1061,18 @@ async function traduzir(b64Wav, de, para){
       clearTimeout(t);
       if(e.message === 'chave') throw e;
       ultimo = e;
-      if(tentativa === 0 && (e.name === 'AbortError' || e instanceof TypeError)){
+      // Modelo que não responde em 30 s está pendurado; trocar resolve mais
+      // que esperar. Isto aparecia como "sem internet", que era enganoso.
+      if(e.name === 'AbortError' && tentativa < 3){
+        const outro = await trocarPorModeloValido();
+        if(outro){ status('Modelo lento — tentando ' + outro + '…', 'busy'); continue; }
+        const lento = new Error('lento');
+        lento.detalhe = 'O modelo "' + S.model + '" não respondeu em 30 segundos e não ' +
+          'há outro para tentar. Abra ⚙ → "Testar conexão": ele procura um modelo que ' +
+          'esteja respondendo agora.';
+        throw lento;
+      }
+      if(tentativa === 0 && (e.message === 'rede' || e instanceof TypeError)){
         await new Promise(res => setTimeout(res, 1200));
         continue;
       }
@@ -1028,10 +1136,9 @@ async function ttsGemini(texto){
   const t = setTimeout(() => ab.abort(), 30000);
   let r;
   try{
-    const p = pedido('/models/' + S.modelTTS + ':generateContent');
-    r = await fetch(p.alvo, {
+    r = await chamarApi('/models/' + S.modelTTS + ':generateContent', {
       method:'POST',
-      headers:Object.assign({ 'Content-Type':'application/json' }, p.cab),
+      headers:{ 'Content-Type':'application/json' },
       body:JSON.stringify(corpo), signal:ab.signal
     });
   }finally{ clearTimeout(t); }
@@ -1262,7 +1369,9 @@ async function turno(de){
 
   }catch(e){
     const tipo = e.message === 'chave' ? 'chave'
-               : (e.name === 'AbortError' || e instanceof TypeError) ? 'rede' : 'geral';
+               : e.message === 'lento' ? 'lento'
+               : (e.name === 'AbortError' || e.message === 'rede' || e instanceof TypeError) ? 'rede'
+               : 'geral';
     let detalhe = e.detalhe || '';
     if(/http 404/.test(e.message)){
       detalhe = 'O modelo "' + S.model + '" não existe para esta chave, e não achei ' +
@@ -1271,6 +1380,7 @@ async function turno(de){
     }
     erro(de, tipo, detalhe); erro(para, tipo);
     status(tipo === 'chave' ? 'Chave da API inválida — toque em ⚙'
+         : tipo === 'lento' ? 'Os modelos estão lentos ou ocupados — toque em ⚙ → Testar conexão'
          : tipo === 'rede'  ? 'Sem internet ou servidor fora do ar'
          : 'Erro: ' + e.message + ' — detalhes no painel', 'bad');
   }finally{
@@ -1339,8 +1449,16 @@ function revisarChave(){
     out.innerHTML = '<span class="pill no">⚠ Este navegador não está salvando dados. A chave vale só enquanto a aba estiver aberta — saia da navegação privada.</span>';
     return;
   }
+  // Um endereço inválido aqui derruba toda chamada com "sem internet", sem
+  // pista nenhuma de que a causa é este campo.
+  const px = $('#iProxy').value.trim();
+  if(px && !/^https:\/\/[^\s/]+\./.test(px)){
+    out.innerHTML = '<span class="pill no">✗ O "Servidor intermediário" abaixo não é um endereço https:// válido. ' +
+      'Se você não publicou o proxy, <b>deixe esse campo vazio</b> — senão todas as traduções falham.</span>';
+    return;
+  }
   if(!v){
-    out.innerHTML = S.proxy
+    out.innerHTML = px
       ? '<span class="pill ok">✓ Usando o servidor intermediário</span>'
       : '<span class="pill no">Sem chave — cole a chave acima</span>';
     return;
@@ -1408,26 +1526,51 @@ function melhorVoz(lista){
  * para as chamadas seguintes já irem direto no método certo.
  */
 async function listarModelos(){
-  if(S.proxy){
-    const p = pedido('/models', 'pageSize=200');
-    const r = await fetch(p.alvo, { headers:p.cab });
-    if(!r.ok) throw new Error(descreveHttp(r.status));
-    return { j: await r.json(), modo:null };
+  const r = await chamarApi('/models', null, 'pageSize=200');
+  if(!r.ok){
+    const e = new Error(descreveHttp(r.status));
+    e.detalhe = (await r.text().catch(() => '')).slice(0, 600);
+    throw e;
   }
+  return { j: await r.json(), modo:S.auth };
+}
 
-  let ultimo = null;
-  for(const modo of ['header', 'query']){
+/**
+ * Testa candidatos com uma chamada mínima e devolve o primeiro que responder.
+ * Só os quatro primeiros: o objetivo é achar um que sirva, não auditar todos.
+ */
+async function primeiroQueResponde(lista){
+  const cand = [];
+  const flash = lista.filter(n => /flash/.test(n) && !/lite/.test(n));
+  for(const n of flash.concat(lista)) if(cand.indexOf(n) < 0) cand.push(n);
+
+  for(const modelo of cand.slice(0, 4)){
+    const ab = new AbortController();
+    const t = setTimeout(() => ab.abort(), 20000);
     try{
-      const p = pedido('/models', 'pageSize=200', modo);
-      const r = await fetch(p.alvo, { headers:p.cab });
-      if(!r.ok){ ultimo = new Error(descreveHttp(r.status)); continue; }
-      return { j: await r.json(), modo };
-    }catch(e){
-      // TypeError aqui costuma ser CORS barrando o preflight do cabeçalho
-      ultimo = e;
-    }
+      const r = await chamarApi('/models/' + modelo + ':generateContent', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json' },
+        body:JSON.stringify({
+          contents:[{ parts:[{ text:'ok' }] }],
+          generationConfig:Object.assign({ maxOutputTokens:5 },
+            S.raciocinio === 'baixo' ? { thinkingConfig:{ thinkingLevel:'LOW' } } : {})
+        }),
+        signal:ab.signal
+      });
+      clearTimeout(t);
+      if(r.ok) return modelo;
+      // modelo antigo pode recusar thinkingLevel; isso não o desqualifica
+      if(r.status === 400){
+        const txt = await r.text().catch(() => '');
+        if(/invalid argument/i.test(txt) && S.raciocinio === 'baixo'){
+          S.raciocinio = 'padrao';
+          return await primeiroQueResponde([modelo]) || null;
+        }
+      }
+    }catch(e){ clearTimeout(t); }
   }
-  throw ultimo || new Error('não foi possível falar com a API');
+  return null;
 }
 
 function descreveHttp(s){
@@ -1454,7 +1597,15 @@ $('#bTest').addEventListener('click', async () => {
     const s = $('#iModel');
     s.innerHTML = '';
     for(const n of lista) s.add(new Option(n, n));
-    opcaoModelo(lista.includes(S.model) ? S.model : melhorTraducao(lista));
+    cacheModelos = extrairModelos(j);
+
+    // Listar não basta: medido nesta mesma chave, gemini-flash-latest e
+    // gemini-3.7-flash apareciam na lista e respondiam 503, enquanto
+    // gemini-3.6-flash respondia em 3 s. Aqui cada candidato leva uma
+    // chamada mínima de verdade, e fica o primeiro que responder.
+    b.textContent = 'Procurando um modelo que responda…';
+    const saudavel = await primeiroQueResponde(cacheModelos);
+    opcaoModelo(saudavel || (lista.includes(S.model) ? S.model : melhorTraducao(lista)));
     S.model = s.value;
 
     // modelos de voz para o modo fone, preenchidos pela própria API para
@@ -1468,7 +1619,10 @@ $('#bTest').addEventListener('click', async () => {
       S.modelTTS = st.value;
     }
 
-    out.innerHTML = '<span class="pill ok">✓ Conectado — ' + lista.length + ' modelos de tradução</span>' +
+    out.innerHTML = '<span class="pill ' + (saudavel ? 'ok' : 'no') + '">' +
+      (saudavel ? '✓ ' + saudavel + ' respondeu' : '⚠ Nenhum modelo respondeu agora — tente de novo em alguns minutos') +
+      '</span>' +
+      '<span class="pill ok">✓ Conectado — ' + lista.length + ' modelos de tradução</span>' +
       '<span class="pill ' + (vozes.length ? 'ok' : 'no') + '">' +
       (vozes.length ? '✓ ' + vozes.length + ' modelo(s) de voz' : '✗ Nenhum modelo de voz — modo fone indisponível') +
       '</span>' +

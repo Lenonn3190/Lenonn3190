@@ -51,7 +51,9 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Modelo de voz descontinuado | O seletor de modelo de voz também é preenchido pela API |
 | Mudança no formato da chave | Aceita `AQ.` e `AIza`, e avisa que o formato antigo se encerra em setembro de 2026 |
 | Cabeçalho de autenticação barrado | *Testar conexão* detecta e cai para `?key=`, guardando o método que funciona |
-| Modelo indisponível nesta conta (404) | O app lista os modelos reais da chave, troca e refaz a tradução sozinho |
+| Modelo indisponível (404), aposentado ou sobrecarregado (503) | O app desce para o próximo modelo e refaz a tradução sozinho |
+| Modelo pendurado | Corta em 30 s e troca de modelo, em vez de acusar falta de internet |
+| Latência alta | `thinkingLevel: LOW` — medido: 6,1 s → 2,4 s |
 | Erro da API ilegível na barra de status | O texto completo aparece no painel, que quebra linha e rola |
 
 ---
@@ -162,15 +164,34 @@ apaga nem duplica o que você já tinha.
 
 ## Qual modelo usar
 
-O app vem no alias `gemini-flash-latest`, e não numa versão fixa: a
-disponibilidade de modelo **varia por conta**, e fixar um nome que a sua chave
-não tem dá 404 antes da primeira tradução. O alias acompanha o flash mais novo
-que a chave enxerga.
+**Não dá para saber de fora qual modelo vai funcionar.** Medido contra a API
+com uma chave real, no mesmo minuto:
 
-Se ainda assim vier 404, o app pergunta à API quais modelos a conta tem, adota
-um deles e refaz a tradução sozinho — sem você precisar fazer nada. Só quando
-não há nenhum modelo utilizável é que ele mostra o erro, com a mensagem
-literal da API e o que fazer.
+| modelo | resultado |
+|---|---|
+| `gemini-flash-latest` | 503 / sem resposta |
+| `gemini-3.7-flash` | 503 / sem resposta |
+| `gemini-3.6-flash` | 200 em **3,1 s** |
+
+Um modelo pode estar indisponível para a conta (404), ter sido aposentado
+(a API o lista e depois o recusa) ou estar simplesmente sobrecarregado (503).
+Por isso o app **procura** em vez de apostar:
+
+- em **⚙ → Testar conexão**, cada candidato leva uma chamada mínima de verdade,
+  e fica o primeiro que responder — listar não basta;
+- durante a conversa, um 404, um 503 ou uma demora acima de 30 s fazem o app
+  descer para o próximo modelo e refazer a tradução sozinho;
+- quando a API sugere o substituto na mensagem de erro
+  (*"use models/gemini-3.6-flash"*), esse é o palpite adotado.
+
+### Latência
+
+O app pede `thinkingLevel: LOW`. Medido no `gemini-3.6-flash`, a mesma
+tradução leva **6,1 s** com o raciocínio padrão e **2,4 s** em LOW. Numa
+conversa cara a cara esses 3,7 s pesam mais que o ganho de qualidade, que
+aqui é nulo — a fala é curta e já vem com glossário e contexto. Modelos
+antigos não conhecem o parâmetro e respondem 400; nesse caso ele é retirado
+automaticamente.
 
 Em **⚙ → Testar conexão** a lista é preenchida pela própria API e ordenada da
 versão mais nova para a mais antiga, então acompanha os lançamentos sem
