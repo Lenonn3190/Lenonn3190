@@ -1128,7 +1128,9 @@ async function traduzir(b64Wav, de, para){
             continue;
           }
           const e = new Error('cota');
-          e.detalhe = DICA_COTA;
+          // A frase do Google separa saldo pré-pago esgotado de cota gratuita
+          // estourada; são remédios diferentes.
+          e.detalhe = porqueFalhou([{ modelo:S.model, status:429, msg:mensagemDaApi(txt) }]);
           throw e;
         }
 
@@ -1419,11 +1421,12 @@ async function procurarModeloRapido(segMedidos){
     // justamente os segundos que se quer evitar.
     const outros = (await catalogo()).filter(n => n !== antes);
     const r = await maisRapidoQueResponde(outros.length ? outros : await catalogo());
-    if(r && r.modelo !== antes){
+    if(r && r.erro){ status('Pronto'); return; }
+    if(r && r.modelo && r.modelo !== antes){
       S.model = r.modelo;
       lentos = 0;
       status('Trocado para ' + r.modelo + ' (' + (r.ms/1000).toFixed(1).replace('.',',') + 's no teste)');
-    }else if(r){
+    }else if(r && r.modelo){
       // já estamos no melhor disponível: parar de tentar a cada fala
       lentos = -99;
       status('Pronto · ' + r.modelo + ' já é o mais rápido disponível agora');
@@ -1725,7 +1728,7 @@ async function maisRapidoQueResponde(lista, aoTestar){
   const flash = lista.filter(n => /flash/.test(n) && !/lite/.test(n));
   for(const n of flash.concat(lista)) if(cand.indexOf(n) < 0) cand.push(n);
 
-  const tempos = [];
+  const tempos = [], falhas = [];
   for(const modelo of cand.slice(0, 5)){
     if(aoTestar) aoTestar(modelo);
     const ab = new AbortController();
@@ -1749,20 +1752,85 @@ async function maisRapidoQueResponde(lista, aoTestar){
         if(Date.now() - t0 < 2500) break;
         continue;
       }
+      const txt = await r.text().catch(() => '');
+      falhas.push({ modelo, status:r.status, msg:mensagemDaApi(txt) });
+
       // modelo antigo pode recusar thinkingLevel; isso não o desqualifica
-      if(r.status === 400){
-        const txt = await r.text().catch(() => '');
-        if(/invalid argument/i.test(txt) && S.raciocinio === 'baixo'){
-          S.raciocinio = 'padrao';
-          const so = await maisRapidoQueResponde([modelo], aoTestar);
-          if(so) tempos.push({ modelo:so.modelo, ms:so.ms });
-        }
+      if(r.status === 400 && /invalid argument/i.test(txt) && S.raciocinio === 'baixo'){
+        S.raciocinio = 'padrao';
+        const so = await maisRapidoQueResponde([modelo], aoTestar);
+        if(so && so.modelo) tempos.push({ modelo:so.modelo, ms:so.ms });
       }
-    }catch(e){ clearTimeout(t); }
+    }catch(e){
+      clearTimeout(t);
+      falhas.push({ modelo, status:0,
+                    msg: e.name === 'AbortError' ? 'não respondeu em 15 s' : (e.message || 'falha de rede') });
+    }
   }
-  if(!tempos.length) return null;
-  tempos.sort((a,b) => a.ms - b.ms);
-  return tempos[0];
+  if(tempos.length){
+    tempos.sort((a,b) => a.ms - b.ms);
+    return tempos[0];
+  }
+  // Antes daqui saía só "nenhum modelo respondeu", que escondia a causa e
+  // ainda sugeria esperar — inútil quando o motivo é saldo ou chave.
+  return { erro: falhas };
+}
+
+/**
+ * Traduz a pilha de falhas dos testes numa explicação acionável.
+ *
+ * As três causas de 429 pedem coisas diferentes — esperar a virada do dia,
+ * adicionar saldo, ou nada disso — e agrupá-las sob "tente mais tarde"
+ * mandava o usuário esperar por algo que não ia acontecer.
+ */
+function porqueFalhou(falhas){
+  if(!falhas || !falhas.length) return 'Nenhum modelo foi testado. Confira a chave em ⚙.';
+
+  const msgs = falhas.map(f => f.msg || '').join(' ');
+  const cabeca = 'A API recusou todos os modelos testados. Resposta do Google:\n\n"' +
+                 (falhas[0].msg || 'sem mensagem') + '"\n\n';
+
+  if(/prepay|prepayment|credits are depleted/i.test(msgs)){
+    return cabeca +
+      'Isso quer dizer que o faturamento está ATIVO, mas a conta é pré-paga e o ' +
+      'saldo acabou. Esperar não resolve.\n\n' +
+      'Vá em https://ai.studio/projects, abra o projeto desta chave e adicione ' +
+      'crédito. Assim que o saldo entrar, volte aqui e toque em "Testar conexão".';
+  }
+  if(/free.?tier|GenerateRequestsPerDay/i.test(msgs)){
+    return cabeca + DICA_COTA;
+  }
+  if(falhas.some(f => f.status === 429)){
+    return cabeca + 'É limite de uso (429). Confira saldo e cotas em ' +
+           'https://ai.studio/projects.';
+  }
+  if(falhas.some(f => f.status === 403 || f.status === 400)){
+    return cabeca + 'Parece problema da chave: inválida, restrita a outro domínio, ' +
+           'ou sem a API Generative Language habilitada. Gere outra em ' +
+           'https://aistudio.google.com/apikey.';
+  }
+  if(falhas.every(f => f.status === 0)){
+    return cabeca + 'Nenhuma resposta chegou. Verifique a internet do aparelho e, ' +
+           'em ⚙, se o campo "Servidor intermediário" está vazio (ele só deve ter ' +
+           'endereço se você publicou o proxy).';
+  }
+  return cabeca + falhas.map(f => '• ' + f.modelo + ': HTTP ' + f.status + ' — ' + f.msg).join('\n');
+}
+
+/** Extrai a frase que o Google devolve; é mais precisa que qualquer paráfrase. */
+function mensagemDaApi(txt){
+  try{
+    const e = JSON.parse(txt).error || {};
+    let m = (e.message || '').trim() || ('HTTP ' + (e.code || '?'));
+    // O que separa cota gratuita de saldo pré-pago vem no quotaId, não na
+    // mensagem — descartar os details apagava justamente o sinal decisivo.
+    for(const d of (e.details || [])){
+      for(const v of (d.violations || [])){
+        if(v.quotaId) m += '  [' + v.quotaId + ']';
+      }
+    }
+    return m;
+  }catch(x){ return (txt || '').slice(0, 160); }
 }
 
 function descreveHttp(s){
@@ -1819,8 +1887,8 @@ $('#bTest').addEventListener('click', async () => {
 
     out.innerHTML = '<span class="pill ' + (saudavel ? 'ok' : 'no') + '">' +
       (saudavel ? '✓ Mais rápido: ' + saudavel + ' (' + (rapido.ms/1000).toFixed(1).replace('.',',') + 's)'
-                : '⚠ Nenhum modelo respondeu agora — tente de novo em alguns minutos') +
-      '</span>' +
+                : '✗ Nenhum modelo respondeu') + '</span>' +
+      (saudavel ? '' : '<div class="detalhe" style="margin-top:10px">' + esc(porqueFalhou(rapido && rapido.erro)) + '</div>') +
       '<span class="pill ok">✓ Conectado — ' + lista.length + ' modelos de tradução</span>' +
       '<span class="pill ' + (vozes.length ? 'ok' : 'no') + '">' +
       (vozes.length ? '✓ ' + vozes.length + ' modelo(s) de voz' : '✗ Nenhum modelo de voz — modo fone indisponível') +
