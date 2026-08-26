@@ -1775,6 +1775,10 @@ function descreveHttp(s){
 $('#bTest').addEventListener('click', async () => {
   const b = $('#bTest'), out = $('#testOut');
   b.disabled = true; b.textContent = 'Testando…'; out.innerHTML = '';
+  // Quem acabou de ativar faturamento não deve precisar recarregar a página:
+  // as marcas de "sem cota" desta sessão são zeradas aqui.
+  for(const m of Object.keys(semCota)) delete semCota[m];
+  lentos = 0;
   try{
     const { j, modo } = await listarModelos();
     if(modo && modo !== S.auth) S.auth = modo;
