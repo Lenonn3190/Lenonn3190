@@ -54,6 +54,9 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Modelo indisponível (404), aposentado ou sobrecarregado (503) | O app desce para o próximo modelo e refaz a tradução sozinho |
 | Modelo pendurado | Corta em 30 s e troca de modelo, em vez de acusar falta de internet |
 | Modelo lento porém sem erro | Duas falas acima de 8 s trocam de modelo sozinhas, em segundo plano |
+| Mão ocupada na fábrica | Modo mãos livres: detecta a fala e o idioma sozinho, sem botão |
+| App ouvir a própria voz no mãos livres | Escuta travada enquanto o app fala, nos três caminhos de áudio |
+| Primeira sílaba cortada | 0,45 s de pré-registro antes do disparo do detector |
 | Cota diária estourada (429) | Como a cota é por modelo, troca para outro; esgotados todos, explica o limite e como resolver |
 | Latência alta | `thinkingLevel: LOW` (6,1 s → 2,4 s), silêncio cortado (167 → 79 KB) e romaji desligável |
 | Não saber o que está lento | A barra mostra tempo e KB de cada turno |
@@ -240,6 +243,50 @@ cara a latência pesa mais que o último ponto de qualidade: um Pro acrescenta
 segundos a cada turno, e as falas aqui são curtas e já vêm com glossário e
 contexto. Se quiser comparar, troque no seletor e teste — mas ajuste primeiro
 o contexto e o glossário, que rendem mais.
+
+---
+
+## Modo mãos livres
+
+Em **⚙ → Mãos livres**. O microfone fica aberto, o app detecta sozinho quando
+alguém fala, **identifica se foi português ou japonês** e traduz para o outro.
+Ninguém toca em botão — útil justamente quando as mãos estão ocupadas com
+peça, EPI ou prancheta.
+
+A detecção de idioma é a parte segura: português e japonês são foneticamente
+tão distintos que o modelo acerta sem esforço. O prompt deixa de informar a
+origem e passa a pedir que ele a identifique, devolvendo `source_lang`.
+
+### Como funciona por dentro
+
+O áudio é capturado direto do grafo de Web Audio, sem `MediaRecorder`. Isso
+permite guardar **0,45 s anteriores** ao disparo do detector: sem esse
+pré-registro a primeira sílaba se perde, porque quando o detector percebe que
+alguém falou a palavra já começou. De quebra o áudio já sai como Float32 e vai
+direto ao mesmo codificador WAV — sem decodificar e sem depender do formato
+que cada navegador escolhe gravar.
+
+Uma fala termina após **1,2 s** de silêncio. Trechos abaixo de 0,45 s são
+descartados como ruído, e o piso de ruído é uma média móvel, porque numa
+fábrica o fundo muda ao longo do dia.
+
+### As três coisas que limitam
+
+**Use fone de ouvido.** Com o microfone sempre aberto, o app ouviria a própria
+voz sintetizada, traduziria, falaria de novo — laço infinito. Existe trava
+explícita (a escuta é bloqueada enquanto o app fala, nos três caminhos de
+áudio: voz do aparelho, voz do Gemini e tons de teste), mas som vazando do
+alto-falante para o microfone ainda atrapalha. Com fone o problema some.
+
+**Cada trecho detectado é uma chamada paga.** No modo manual você controla
+quantas; aqui o ruído de linha, a conversa alheia e a batida de ferramenta
+podem disparar sozinhos. Em ambiente barulhento o gasto sobe bastante.
+
+**Uma pessoa por vez.** Se os dois falarem juntos, o trecho sai embolado. O
+botão do modo manual força a alternância; mãos livres não.
+
+No modo mãos livres os botões deixam de gravar: um toque **pausa** a escuta,
+outro retoma. Útil para uma conversa paralela que não deve ser traduzida.
 
 ---
 
