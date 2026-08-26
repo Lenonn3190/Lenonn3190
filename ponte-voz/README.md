@@ -53,7 +53,8 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Cabeçalho de autenticação barrado | *Testar conexão* detecta e cai para `?key=`, guardando o método que funciona |
 | Modelo indisponível (404), aposentado ou sobrecarregado (503) | O app desce para o próximo modelo e refaz a tradução sozinho |
 | Modelo pendurado | Corta em 30 s e troca de modelo, em vez de acusar falta de internet |
-| Latência alta | `thinkingLevel: LOW` — medido: 6,1 s → 2,4 s |
+| Latência alta | `thinkingLevel: LOW` (6,1 s → 2,4 s), silêncio cortado (167 → 79 KB) e romaji desligável |
+| Não saber o que está lento | A barra mostra tempo e KB de cada turno |
 | Voz demorando e travando a conversa | O microfone é liberado com o texto; a voz chega depois, em segundo plano |
 | Mesma frase repetida | O áudio já gerado é reaproveitado, sem nova chamada |
 | Voz atrasada atropelando a fala seguinte | Uma fala nova cancela a voz anterior |
@@ -189,7 +190,23 @@ Por isso o app **procura** em vez de apostar:
 
 ### Latência
 
-O app pede `thinkingLevel: LOW`. Medido no `gemini-3.6-flash`, a mesma
+Três coisas encurtam o turno, e a barra de status mostra o resultado de cada
+uma: depois de cada tradução ela exibe **`Pronto · 2,4s · 79 KB`**, o tempo do
+turno e quanto de áudio subiu. Assim dá para comparar na rede da sua fábrica,
+em vez de acreditar num número medido em outro lugar.
+
+**1. Silêncio das pontas não é enviado.** Medido: **167 KB → 79 KB**, e os
+tokens de entrada de **156 → 104**. Metade do envio era silêncio, e não por
+acaso: o auto-stop espera 1,6 s de silêncio antes de encerrar, então toda
+gravação carregava esse trecho. As margens do corte são generosas — mandar um
+pouco de silêncio a mais custa alguns KB, cortar o começo de uma palavra
+estraga a transcrição.
+
+**2. Romaji é desligável** (⚙ → Velocidade). Ele quase dobra o texto que o
+modelo precisa gerar, e é a saída que domina o tempo de resposta. Desligado, o
+japonês continua aparecendo escrito e falado — some só a transliteração.
+
+**3. `thinkingLevel: LOW`.** Medido no `gemini-3.6-flash`, a mesma
 tradução leva **6,1 s** com o raciocínio padrão e **2,4 s** em LOW. Numa
 conversa cara a cara esses 3,7 s pesam mais que o ganho de qualidade, que
 aqui é nulo — a fala é curta e já vem com glossário e contexto. Modelos

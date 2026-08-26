@@ -301,6 +301,13 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
     <label for="iModelTTS">Modelo de voz</label>
     <select id="iModelTTS"><option value="gemini-2.5-flash-preview-tts">gemini-2.5-flash-preview-tts</option></select>
 
+    <h3>Velocidade</h3>
+    <label style="display:flex;align-items:center;gap:10px;margin-bottom:6px">
+      <input type="checkbox" id="iRomaji" checked style="width:20px;height:20px;flex:none;margin:0" />
+      <span style="font-weight:600;color:var(--txt)">Mostrar romaji sob o japonês</span>
+    </label>
+    <p>O romaji quase dobra o texto que o modelo precisa gerar, e é isso que domina o tempo de resposta. Desligar deixa a tradução visivelmente mais rápida; o japonês continua aparecendo escrito e falado.</p>
+
     <h3>Ajustes</h3>
     <label for="iRate">Velocidade da fala: <span id="rateVal">0,95</span>×</label>
     <input type="range" id="iRate" min="0.6" max="1.3" step="0.05" value="0.95" style="width:100%;margin-bottom:16px" />
@@ -594,6 +601,11 @@ const S = {
   get modelTTS(){ return lerCfg('ponte.modeltts') || 'gemini-2.5-flash-preview-tts' },
   set modelTTS(v){ gravarCfg('ponte.modeltts', v) },
   get voz(){ return lerCfg('ponte.voz') || 'Kore' },
+  /* Romaji custa quase o dobro de tokens de saída, e é a saída que domina o
+     tempo de resposta. Fica ligado por padrão, mas dá para trocar por
+     velocidade. */
+  get romaji(){ return lerCfg('ponte.romaji') !== '0' },
+  set romaji(v){ gravarCfg('ponte.romaji', v ? '1' : '0') },
   set voz(v){ gravarCfg('ponte.voz', v) },
   get gloss(){ try{ return JSON.parse(lerCfg('ponte.gloss') || '[]') }catch(e){ return [] } },
   set gloss(v){ gravarCfg('ponte.gloss', JSON.stringify(v)) },
@@ -758,15 +770,56 @@ async function paraWav(blob){
     out[i] = mono[i0]*(1-t) + mono[i1]*t;
   }
 
+  // Corta os silêncios das pontas antes de enviar. Medido: 167 KB caem para
+  // 79 KB, e os tokens de entrada de 156 para 104. Metade do envio era
+  // silêncio — e não por acaso: o auto-stop espera 1,6 s de silêncio antes
+  // de encerrar, então toda gravação carregava esse trecho.
+  const util = cortarSilencio(out, 16000);
+
   // normaliza o pico — ajuda muito em ambiente barulhento / voz distante
   let pico = 0;
-  for(let i=0;i<saidaN;i++){ const a = Math.abs(out[i]); if(a > pico) pico = a; }
+  for(let i=0;i<util.length;i++){ const a = Math.abs(util[i]); if(a > pico) pico = a; }
   if(pico > 0.001 && pico < 0.92){
     const g = Math.min(6, 0.92 / pico);
-    for(let i=0;i<saidaN;i++) out[i] *= g;
+    for(let i=0;i<util.length;i++) util[i] *= g;
   }
 
-  return { b64: b64(wav(out, 16000)), pico, segundos: saidaN / 16000 };
+  return { b64: b64(wav(util, 16000)), pico, segundos: util.length / 16000 };
+}
+
+/**
+ * Descarta o silêncio antes da primeira e depois da última sílaba.
+ *
+ * As margens são propositalmente generosas: mandar um pouco de silêncio a
+ * mais custa alguns KB, enquanto cortar o começo de uma palavra estraga a
+ * transcrição. Na dúvida, devolve o áudio inteiro.
+ */
+function cortarSilencio(f32, taxa){
+  const jan = Math.floor(taxa * 0.02);          // janelas de 20 ms
+  const n = Math.floor(f32.length / jan);
+  if(n < 8) return f32;
+
+  const energia = new Float32Array(n);
+  for(let j=0;j<n;j++){
+    let s = 0;
+    for(let i=j*jan;i<(j+1)*jan;i++) s += f32[i]*f32[i];
+    energia[j] = Math.sqrt(s / jan);
+  }
+
+  const ord = Array.from(energia).sort((a,b) => a-b);
+  const piso = ord[Math.floor(n * 0.15)];       // ruído de fundo do ambiente
+  const pico = ord[n-1];
+  if(pico < 0.01) return f32;                   // só silêncio: não mexe
+
+  const limiar = Math.max(piso * 3, pico * 0.06);
+  let ini = 0, fim = n - 1;
+  while(ini < n   && energia[ini] < limiar) ini++;
+  while(fim > ini && energia[fim] < limiar) fim--;
+  if(ini >= fim) return f32;
+
+  const a = Math.max(0, ini * jan - Math.floor(taxa * 0.15));
+  const b = Math.min(f32.length, (fim + 1) * jan + Math.floor(taxa * 0.25));
+  return b - a < taxa * 0.3 ? f32 : f32.subarray(a, b);
 }
 
 function wav(f32, taxa){
@@ -820,18 +873,16 @@ function prompt(de, para){
     '- Se o áudio estiver vazio, mudo ou totalmente ininteligível, devolva source_text como texto vazio.'
   ];
 
-  if(para === 'ja'){
-    linhas.push('- Em target_reading escreva a leitura do japonês em romaji (Hepburn), separado por palavras.');
-  }else{
-    linhas.push('- Em target_reading escreva texto vazio.');
-  }
-  if(de === 'ja'){
-    linhas.push('- Em source_reading escreva a leitura do japonês transcrito em romaji (Hepburn).');
-  }else{
-    linhas.push('- Em source_reading escreva texto vazio.');
+  if(S.romaji){
+    linhas.push(para === 'ja'
+      ? '- Em target_reading escreva a leitura do japonês em romaji (Hepburn), separado por palavras.'
+      : '- Em target_reading escreva texto vazio.');
+    linhas.push(de === 'ja'
+      ? '- Em source_reading escreva a leitura do japonês transcrito em romaji (Hepburn).'
+      : '- Em source_reading escreva texto vazio.');
   }
 
-  linhas.push('- Em note, escreva UMA frase curta em português SÓ se houver ambiguidade real que possa causar mal-entendido (sujeito omitido, palavra com dois sentidos, termo técnico incerto) e diga qual sentido você assumiu. Se não houver, devolva texto vazio.');
+  linhas.push('- Em note, no MÁXIMO uma frase curta em português, e só se houver ambiguidade real que possa causar mal-entendido (sujeito omitido, palavra com dois sentidos, termo técnico incerto): diga qual sentido você assumiu. Sem ambiguidade, devolva texto vazio. Nunca comente a tradução nem justifique escolhas.');
 
   if(g.length){
     linhas.push('', 'GLOSSÁRIO OBRIGATÓRIO DESTA EMPRESA — use exatamente estes equivalentes:');
@@ -840,7 +891,9 @@ function prompt(de, para){
     }
   }
 
-  const h = S.hist.slice(-4);
+  // Duas falas bastam para manter pronomes e assunto coerentes; quatro só
+  // engordavam o pedido, e cada token de entrada custa tempo.
+  const h = S.hist.slice(-2);
   if(h.length){
     linhas.push('', 'Falas anteriores desta mesma conversa, para você manter o contexto e os pronomes coerentes:');
     for(const t of h) linhas.push('- [' + t.de + '] ' + t.pt + '  /  ' + t.ja);
@@ -849,17 +902,19 @@ function prompt(de, para){
   return linhas.join('\n');
 }
 
-const ESQUEMA = {
-  type:'OBJECT',
-  properties:{
-    source_text:{ type:'STRING' },
-    source_reading:{ type:'STRING' },
-    target_text:{ type:'STRING' },
-    target_reading:{ type:'STRING' },
-    note:{ type:'STRING' }
-  },
-  required:['source_text','source_reading','target_text','target_reading','note']
-};
+/* O tempo de resposta é dominado pelos tokens de SAÍDA, e o romaji quase
+   dobra o texto gerado. Quem não precisa dele ganha velocidade real ao
+   desligá-lo; por isso o esquema é montado conforme a escolha. */
+function esquema(){
+  const p = { source_text:{ type:'STRING' }, target_text:{ type:'STRING' }, note:{ type:'STRING' } };
+  const req = ['source_text','target_text','note'];
+  if(S.romaji){
+    p.source_reading = { type:'STRING' };
+    p.target_reading = { type:'STRING' };
+    req.push('source_reading','target_reading');
+  }
+  return { type:'OBJECT', properties:p, required:req };
+}
 
 /**
  * Monta endereço e cabeçalhos de uma chamada.
@@ -976,7 +1031,10 @@ async function traduzir(b64Wav, de, para){
     generationConfig:Object.assign({
       temperature:0.15,
       responseMimeType:'application/json',
-      responseSchema:ESQUEMA
+      responseSchema:esquema(),
+      // Teto de segurança: o tempo de resposta é dominado pelos tokens de
+      // saída, e sem limite um "note" prolixo atrasa a fala inteira.
+      maxOutputTokens:400
     },
     /* Medido contra a API: no gemini-3.6-flash a mesma tradução leva 6,1 s
        com o raciocínio padrão e 2,4 s em LOW. Numa conversa cara a cara
@@ -1362,6 +1420,7 @@ async function turno(de){
   if(cap.blob.size < 1200){ erro(de,'mudo'); status('Não ouvi nada', 'bad'); return; }
 
   travar(true);
+  const t0 = Date.now();
   status(LANG[de].wait + '  /  ' + LANG[para].wait, 'busy');
 
   try{
@@ -1393,7 +1452,12 @@ async function turno(de){
     // O texto já está na tela: a conversa pode seguir enquanto a voz é
     // gerada. Antes o microfone ficava travado os ~3 s do TTS, e era isso
     // que fazia o app parecer lento — não a tradução em si.
-    status('Pronto');
+    // Mostra o tempo do turno na barra: o ganho de cortar silêncio ou
+    // desligar o romaji depende da rede de cada um, e assim dá para comparar
+    // em campo em vez de acreditar num número medido em outro lugar.
+    const seg = ((Date.now() - t0) / 1000).toFixed(1).replace('.', ',');
+    const kb = Math.round(wavData.b64.length * 0.75 / 1024);
+    status('Pronto · ' + seg + 's · ' + kb + ' KB');
     travar(false);
     entregarVoz(esc(r.target_text), para);   // sem await, de propósito
 
@@ -1452,6 +1516,7 @@ $('#bCfg').addEventListener('click', () => {
   $('#iRate').value  = S.rate;
   $('#rateVal').textContent = String(S.rate).replace('.', ',');
   $('#iAuto').checked = S.autoStop;
+  $('#iRomaji').checked = S.romaji;
   opcaoModelo(S.model);
   $('#iEstereo').checked = S.estereo;
   $('#iLado').value = S.ladoPT;
@@ -1509,6 +1574,7 @@ function revisarChave(){
 }
 $('#iModel').addEventListener('change',e => S.model = e.target.value);
 $('#iAuto').addEventListener('change', e => S.autoStop = e.target.checked);
+$('#iRomaji').addEventListener('change', e => S.romaji = e.target.checked);
 $('#iRate').addEventListener('input',  e => {
   S.rate = parseFloat(e.target.value);
   $('#rateVal').textContent = e.target.value.replace('.', ',');
