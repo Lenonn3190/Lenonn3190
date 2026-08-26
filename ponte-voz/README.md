@@ -53,6 +53,7 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Cabeçalho de autenticação barrado | *Testar conexão* detecta e cai para `?key=`, guardando o método que funciona |
 | Modelo indisponível (404), aposentado ou sobrecarregado (503) | O app desce para o próximo modelo e refaz a tradução sozinho |
 | Modelo pendurado | Corta em 30 s e troca de modelo, em vez de acusar falta de internet |
+| Modelo lento porém sem erro | Duas falas acima de 8 s trocam de modelo sozinhas, em segundo plano |
 | Latência alta | `thinkingLevel: LOW` (6,1 s → 2,4 s), silêncio cortado (167 → 79 KB) e romaji desligável |
 | Não saber o que está lento | A barra mostra tempo e KB de cada turno |
 | Voz demorando e travando a conversa | O microfone é liberado com o texto; a voz chega depois, em segundo plano |
@@ -181,10 +182,15 @@ Um modelo pode estar indisponível para a conta (404), ter sido aposentado
 (a API o lista e depois o recusa) ou estar simplesmente sobrecarregado (503).
 Por isso o app **procura** em vez de apostar:
 
-- em **⚙ → Testar conexão**, cada candidato leva uma chamada mínima de verdade,
-  e fica o primeiro que responder — listar não basta;
+- em **⚙ → Testar conexão**, cada candidato é **cronometrado** com uma chamada
+  real e fica o mais rápido — não o primeiro que responder, e não o que a
+  lista sugere;
 - durante a conversa, um 404, um 503 ou uma demora acima de 30 s fazem o app
   descer para o próximo modelo e refazer a tradução sozinho;
+- **duas falas seguidas acima de 8 s** também provocam troca, mesmo sem erro
+  nenhum. Um modelo pode responder certo e levar 20 s — inútil numa conversa
+  cara a cara, e a escada de falhas nunca o pegaria. A busca roda em segundo
+  plano e pula o modelo que já se sabe lento;
 - quando a API sugere o substituto na mensagem de erro
   (*"use models/gemini-3.6-flash"*), esse é o palpite adotado.
 

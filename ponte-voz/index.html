@@ -1369,6 +1369,36 @@ function travar(v){
    5. CICLO PRINCIPAL
    ========================================================================== */
 
+/* Acima disto o turno deixa de servir para conversa. Duas falas lentas
+   seguidas fazem o app procurar um modelo melhor por conta própria. */
+const LENTO_MS = 8000;
+let lentos = 0, procurandoRapido = false;
+
+async function procurarModeloRapido(segMedidos){
+  procurandoRapido = true;
+  const antes = S.model;
+  try{
+    status('Está lento (' + segMedidos + 's) — procurando um modelo mais rápido…', 'busy');
+    // Não remede o que já se sabe lento: cronometrá-lo de novo custaria
+    // justamente os segundos que se quer evitar.
+    const outros = (await catalogo()).filter(n => n !== antes);
+    const r = await maisRapidoQueResponde(outros.length ? outros : await catalogo());
+    if(r && r.modelo !== antes){
+      S.model = r.modelo;
+      lentos = 0;
+      status('Trocado para ' + r.modelo + ' (' + (r.ms/1000).toFixed(1).replace('.',',') + 's no teste)');
+    }else if(r){
+      // já estamos no melhor disponível: parar de tentar a cada fala
+      lentos = -99;
+      status('Pronto · ' + r.modelo + ' já é o mais rápido disponível agora');
+    }
+  }catch(e){
+    status('Pronto');
+  }finally{
+    procurandoRapido = false;
+  }
+}
+
 async function turno(de){
   liberarAudio();
 
@@ -1455,10 +1485,22 @@ async function turno(de){
     // Mostra o tempo do turno na barra: o ganho de cortar silêncio ou
     // desligar o romaji depende da rede de cada um, e assim dá para comparar
     // em campo em vez de acreditar num número medido em outro lugar.
-    const seg = ((Date.now() - t0) / 1000).toFixed(1).replace('.', ',');
+    const ms = Date.now() - t0;
+    const seg = (ms / 1000).toFixed(1).replace('.', ',');
     const kb = Math.round(wavData.b64.length * 0.75 / 1024);
     status('Pronto · ' + seg + 's · ' + kb + ' KB');
     travar(false);
+
+    // Um turno lento que termina SEM erro não acionava a escada de modelos:
+    // ela só reagia a 404, 503 e tempo esgotado. Mas 20 s numa conversa cara
+    // a cara é tão inútil quanto um erro, então lentidão repetida também
+    // precisa provocar troca — em segundo plano, sem travar a conversa.
+    if(ms > LENTO_MS){
+      lentos++;
+      if(lentos >= 2 && !procurandoRapido) procurarModeloRapido(seg);
+    }else if(ms < LENTO_MS / 2){
+      lentos = 0;
+    }
     entregarVoz(esc(r.target_text), para);   // sem await, de propósito
 
   }catch(e){
@@ -1632,17 +1674,24 @@ async function listarModelos(){
 }
 
 /**
- * Testa candidatos com uma chamada mínima e devolve o primeiro que responder.
- * Só os quatro primeiros: o objetivo é achar um que sirva, não auditar todos.
+ * Cronometra os candidatos e devolve o MAIS RÁPIDO, não o primeiro que
+ * responder.
+ *
+ * A diferença importa: um modelo pode responder em 21 s sem erro nenhum, e
+ * aí nada na escada de falhas o substitui — mas 21 s numa conversa cara a
+ * cara é inutilizável. Cinco candidatos, medidos de verdade.
  */
-async function primeiroQueResponde(lista){
+async function maisRapidoQueResponde(lista, aoTestar){
   const cand = [];
   const flash = lista.filter(n => /flash/.test(n) && !/lite/.test(n));
   for(const n of flash.concat(lista)) if(cand.indexOf(n) < 0) cand.push(n);
 
-  for(const modelo of cand.slice(0, 4)){
+  const tempos = [];
+  for(const modelo of cand.slice(0, 5)){
+    if(aoTestar) aoTestar(modelo);
     const ab = new AbortController();
-    const t = setTimeout(() => ab.abort(), 20000);
+    const t = setTimeout(() => ab.abort(), 15000);
+    const t0 = Date.now();
     try{
       const r = await chamarApi('/models/' + modelo + ':generateContent', {
         method:'POST',
@@ -1655,18 +1704,26 @@ async function primeiroQueResponde(lista){
         signal:ab.signal
       });
       clearTimeout(t);
-      if(r.ok) return modelo;
+      if(r.ok){
+        tempos.push({ modelo, ms: Date.now() - t0 });
+        // já achou um bem rápido: parar de gastar chamadas
+        if(Date.now() - t0 < 2500) break;
+        continue;
+      }
       // modelo antigo pode recusar thinkingLevel; isso não o desqualifica
       if(r.status === 400){
         const txt = await r.text().catch(() => '');
         if(/invalid argument/i.test(txt) && S.raciocinio === 'baixo'){
           S.raciocinio = 'padrao';
-          return await primeiroQueResponde([modelo]) || null;
+          const so = await maisRapidoQueResponde([modelo], aoTestar);
+          if(so) tempos.push({ modelo:so.modelo, ms:so.ms });
         }
       }
     }catch(e){ clearTimeout(t); }
   }
-  return null;
+  if(!tempos.length) return null;
+  tempos.sort((a,b) => a.ms - b.ms);
+  return tempos[0];
 }
 
 function descreveHttp(s){
@@ -1699,8 +1756,10 @@ $('#bTest').addEventListener('click', async () => {
     // gemini-3.7-flash apareciam na lista e respondiam 503, enquanto
     // gemini-3.6-flash respondia em 3 s. Aqui cada candidato leva uma
     // chamada mínima de verdade, e fica o primeiro que responder.
-    b.textContent = 'Procurando um modelo que responda…';
-    const saudavel = await primeiroQueResponde(cacheModelos);
+    const rapido = await maisRapidoQueResponde(cacheModelos, m => {
+      b.textContent = 'Cronometrando ' + m + '…';
+    });
+    const saudavel = rapido && rapido.modelo;
     opcaoModelo(saudavel || (lista.includes(S.model) ? S.model : melhorTraducao(lista)));
     S.model = s.value;
 
@@ -1716,7 +1775,8 @@ $('#bTest').addEventListener('click', async () => {
     }
 
     out.innerHTML = '<span class="pill ' + (saudavel ? 'ok' : 'no') + '">' +
-      (saudavel ? '✓ ' + saudavel + ' respondeu' : '⚠ Nenhum modelo respondeu agora — tente de novo em alguns minutos') +
+      (saudavel ? '✓ Mais rápido: ' + saudavel + ' (' + (rapido.ms/1000).toFixed(1).replace('.',',') + 's)'
+                : '⚠ Nenhum modelo respondeu agora — tente de novo em alguns minutos') +
       '</span>' +
       '<span class="pill ok">✓ Conectado — ' + lista.length + ' modelos de tradução</span>' +
       '<span class="pill ' + (vozes.length ? 'ok' : 'no') + '">' +
