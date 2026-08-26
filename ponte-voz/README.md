@@ -54,6 +54,7 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Modelo indisponível (404), aposentado ou sobrecarregado (503) | O app desce para o próximo modelo e refaz a tradução sozinho |
 | Modelo pendurado | Corta em 30 s e troca de modelo, em vez de acusar falta de internet |
 | Modelo lento porém sem erro | Duas falas acima de 8 s trocam de modelo sozinhas, em segundo plano |
+| Cota diária estourada (429) | Como a cota é por modelo, troca para outro; esgotados todos, explica o limite e como resolver |
 | Latência alta | `thinkingLevel: LOW` (6,1 s → 2,4 s), silêncio cortado (167 → 79 KB) e romaji desligável |
 | Não saber o que está lento | A barra mostra tempo e KB de cada turno |
 | Voz demorando e travando a conversa | O microfone é liberado com o texto; a voz chega depois, em segundo plano |
@@ -70,7 +71,18 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 Em <https://aistudio.google.com/apikey>, crie uma chave. As novas vêm no
 formato `AQ.Ab8…`; o formato antigo `AIza…` ainda é aceito pelo app, mas o
 Google encerra essas chaves em **setembro de 2026**, então prefira gerar uma
-nova. O nível gratuito cobre com folga um dia inteiro de conversa.
+nova.
+
+> **O nível gratuito NÃO cobre um dia de visita.** Medido contra a API: o
+> limite é `GenerateRequestsPerDayPerProjectPerModel-FreeTier = 20` — **20
+> pedidos por dia para cada modelo**. Como a cota é por modelo, o app desce a
+> lista quando um estoura, o que dá umas 200 traduções por dia no total. Ainda
+> assim é pouco para uma atividade inteira.
+>
+> **Para a visita valer, ative o faturamento na chave** em
+> <https://aistudio.google.com/apikey>. O custo de um dia de conversa é de
+> centavos, mas o limite sobe muitas ordens de grandeza. Sem isso, a tradução
+> simplesmente para no meio do dia.
 
 A chave vai no cabeçalho `x-goog-api-key`, não em `?key=`: é o que o Google
 recomenda, é o que funciona com as chaves novas, e mantém a chave fora da URL

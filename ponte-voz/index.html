@@ -379,11 +379,13 @@ const ERRO = {
   pt:{ mudo:'Não consegui ouvir nada. Fale mais perto do aparelho.',
        rede:'Sem conexão com o servidor de tradução.',
        lento:'O serviço de tradução está sobrecarregado agora. Tente de novo.',
+       cota:'A cota diária da API acabou. Veja os detalhes abaixo.',
        chave:'Falta configurar a chave da API. Toque em ⚙.',
        geral:'Falhou. Toque no microfone e tente de novo.' },
   ja:{ mudo:'音声が聞き取れませんでした。もう一度お願いします。',
        rede:'翻訳サーバーに接続できません。',
        lento:'翻訳サービスが混み合っています。もう一度お試しください。',
+       cota:'本日のAPI利用上限に達しました。📖 の定型文はご利用いただけます。',
        chave:'APIキーが未設定です。⚙ を押してください。',
        geral:'失敗しました。もう一度お試しください。' }
 };
@@ -982,6 +984,19 @@ async function chamarApi(caminho, init, query){
  */
 let cacheModelos = null;      // catálogo real da chave, buscado uma vez
 let jaTentados = [];          // modelos que falharam nesta fala
+const semCota = {};           // modelos que já devolveram 429 hoje
+const esgotados = () => Object.keys(semCota).length;
+
+const DICA_COTA =
+  'Sua cota da API acabou em todos os modelos disponíveis.\n\n' +
+  'No plano gratuito o limite é de 20 pedidos por dia PARA CADA MODELO ' +
+  '(GenerateRequestsPerDayPerProjectPerModel). Com cerca de dez modelos, dá umas ' +
+  '200 traduções por dia — pouco para uma visita inteira.\n\n' +
+  'O que fazer:\n' +
+  '• ative o faturamento na chave em aistudio.google.com/apikey (o custo de um dia ' +
+  'de conversa é de centavos, mas o limite sobe muitas ordens de grandeza);\n' +
+  '• ou espere a virada do dia, que reinicia a cota gratuita;\n' +
+  '• enquanto isso, o botão 📖 tem 101 frases prontas que funcionam sem API nenhuma.';
 
 function extrairModelos(j){
   return (j.models || [])
@@ -1011,7 +1026,7 @@ async function catalogo(){
  */
 async function trocarPorModeloValido(){
   const lista = await catalogo();
-  const livre = lista.filter(n => n !== S.model && jaTentados.indexOf(n) < 0);
+  const livre = lista.filter(n => n !== S.model && jaTentados.indexOf(n) < 0 && !semCota[n]);
   if(!livre.length) return null;
   const novo = melhorTraducao(livre);
   if(!novo) return null;
@@ -1096,13 +1111,34 @@ async function traduzir(b64Wav, de, para){
           }
         }
 
-        // 503 é modelo sobrecarregado: insistir no mesmo raramente adianta,
-        // e outro modelo da mesma conta costuma estar de pé.
-        if((r.status === 503 || r.status === 429 || r.status >= 500) && tentativa < 3){
+        // 429 é cota, não congestionamento. A cota do plano gratuito é
+        // contada POR MODELO (GenerateRequestsPerDayPerProjectPerModel = 20
+        // por dia), então trocar de modelo realmente adianta — mas insistir
+        // no mesmo, não. Chamar isso de "modelo ocupado" escondia do usuário
+        // que o limite era dele, e não do serviço.
+        if(r.status === 429){
+          semCota[S.model] = true;
+          // O limite de tentativas vale para a troca, não para o diagnóstico:
+          // sem isto, esgotar todos os modelos caía no erro genérico e a
+          // explicação da cota nunca aparecia.
+          const outro = tentativa < 3 ? await trocarPorModeloValido() : null;
+          if(outro){
+            ultimo = new Error('cota');
+            status('Cota diária esgotada em ' + esgotados() + ' modelo(s) — usando ' + outro, 'busy');
+            continue;
+          }
+          const e = new Error('cota');
+          e.detalhe = DICA_COTA;
+          throw e;
+        }
+
+        // 503 é o serviço congestionado de verdade: outro modelo costuma
+        // estar de pé.
+        if((r.status === 503 || r.status >= 500) && tentativa < 3){
           ultimo = new Error('http ' + r.status);
           const outro = await trocarPorModeloValido();
           if(!outro) await new Promise(res => setTimeout(res, 1200));
-          else status('Modelo ocupado — tentando ' + outro + '…', 'busy');
+          else status('Serviço congestionado — tentando ' + outro + '…', 'busy');
           continue;
         }
         const e = new Error('http ' + r.status);
@@ -1505,10 +1541,12 @@ async function turno(de){
 
   }catch(e){
     const tipo = e.message === 'chave' ? 'chave'
+               : e.message === 'cota' ? 'cota'
                : e.message === 'lento' ? 'lento'
                : (e.name === 'AbortError' || e.message === 'rede' || e instanceof TypeError) ? 'rede'
                : 'geral';
     let detalhe = e.detalhe || '';
+    if(tipo === 'cota' && !detalhe) detalhe = DICA_COTA;
     if(/http 404/.test(e.message)){
       detalhe = 'O modelo "' + S.model + '" não existe para esta chave, e não achei ' +
                 'outro para trocar. Abra ⚙ e toque em "Testar conexão" para ver a ' +
@@ -1516,6 +1554,7 @@ async function turno(de){
     }
     erro(de, tipo, detalhe); erro(para, tipo);
     status(tipo === 'chave' ? 'Chave da API inválida — toque em ⚙'
+         : tipo === 'cota'  ? 'Cota diária da API esgotada — detalhes no painel'
          : tipo === 'lento' ? 'Os modelos estão lentos ou ocupados — toque em ⚙ → Testar conexão'
          : tipo === 'rede'  ? 'Sem internet ou servidor fora do ar'
          : 'Erro: ' + e.message + ' — detalhes no painel', 'bad');
