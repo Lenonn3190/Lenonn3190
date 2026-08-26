@@ -245,6 +245,7 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
     <p>Pegue a sua gratuitamente em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Ela fica salva só neste celular e nunca é enviada para outro lugar além do Google.</p>
     <label for="iKey">Chave (AIza…)</label>
     <input type="password" id="iKey" placeholder="AIzaSy…" autocomplete="off" spellcheck="false" />
+    <div id="keyOut" style="margin:-6px 0 14px"></div>
 
     <label for="iProxy">Servidor intermediário (opcional)</label>
     <input type="text" id="iProxy" placeholder="https://ponte.seuusuario.workers.dev" autocomplete="off" spellcheck="false" />
@@ -525,34 +526,55 @@ const GLOSSARIO_FABRICA = [
   { pt:'biela',             ja:'コンロッド',   note:'' }
 ];
 
-/* ---------- estado persistido ---------- */
+/* ---------- estado persistido ----------
+   localStorage lança exceção em situações comuns: navegação privada no iOS,
+   dados de site bloqueados, cota estourada. Sem tratamento, a chave da API
+   simplesmente não salvava e o app continuava dizendo que ela faltava, sem
+   explicar por quê. Aqui a gravação nunca derruba o app: cai para memória e
+   registra que a persistência falhou, para poder avisar na tela. */
+let memoria = {};
+let persisteOk = true;
+
+function lerCfg(k){
+  try{
+    const v = localStorage.getItem(k);
+    if(v !== null) return v;
+  }catch(e){ persisteOk = false; }
+  return Object.prototype.hasOwnProperty.call(memoria, k) ? memoria[k] : null;
+}
+function gravarCfg(k, v){
+  memoria[k] = v;                       // vale para esta sessão, aconteça o que acontecer
+  try{ localStorage.setItem(k, v); }
+  catch(e){ persisteOk = false; }
+}
+
 const S = {
-  get key(){ return localStorage.getItem('ponte.key') || '' },
-  set key(v){ localStorage.setItem('ponte.key', v) },
-  get proxy(){ return (localStorage.getItem('ponte.proxy') || '').replace(/\/+$/,'') },
-  set proxy(v){ localStorage.setItem('ponte.proxy', v) },
-  get model(){ return localStorage.getItem('ponte.model') || 'gemini-3.7-flash' },
-  set model(v){ localStorage.setItem('ponte.model', v) },
-  get contexto(){ return localStorage.getItem('ponte.contexto') || '' },
-  set contexto(v){ localStorage.setItem('ponte.contexto', v) },
-  get rate(){ return parseFloat(localStorage.getItem('ponte.rate') || '0.95') },
-  set rate(v){ localStorage.setItem('ponte.rate', String(v)) },
-  get autoStop(){ return localStorage.getItem('ponte.autostop') !== '0' },
-  set autoStop(v){ localStorage.setItem('ponte.autostop', v ? '1' : '0') },
-  get mic(){ return localStorage.getItem('ponte.mic') || '' },
-  set mic(v){ localStorage.setItem('ponte.mic', v) },
-  get estereo(){ return localStorage.getItem('ponte.estereo') === '1' },
-  set estereo(v){ localStorage.setItem('ponte.estereo', v ? '1' : '0') },
-  get ladoPT(){ return localStorage.getItem('ponte.ladopt') || 'L' },
-  set ladoPT(v){ localStorage.setItem('ponte.ladopt', v) },
-  get modelTTS(){ return localStorage.getItem('ponte.modeltts') || 'gemini-2.5-flash-tts' },
-  set modelTTS(v){ localStorage.setItem('ponte.modeltts', v) },
-  get voz(){ return localStorage.getItem('ponte.voz') || 'Kore' },
-  set voz(v){ localStorage.setItem('ponte.voz', v) },
-  get gloss(){ try{ return JSON.parse(localStorage.getItem('ponte.gloss') || '[]') }catch(e){ return [] } },
-  set gloss(v){ localStorage.setItem('ponte.gloss', JSON.stringify(v)) },
-  get hist(){ try{ return JSON.parse(localStorage.getItem('ponte.hist') || '[]') }catch(e){ return [] } },
-  set hist(v){ localStorage.setItem('ponte.hist', JSON.stringify(v.slice(-300))) }
+  get key(){ return lerCfg('ponte.key') || '' },
+  set key(v){ gravarCfg('ponte.key', v) },
+  get proxy(){ return (lerCfg('ponte.proxy') || '').replace(/\/+$/,'') },
+  set proxy(v){ gravarCfg('ponte.proxy', v) },
+  get model(){ return lerCfg('ponte.model') || 'gemini-3.7-flash' },
+  set model(v){ gravarCfg('ponte.model', v) },
+  get contexto(){ return lerCfg('ponte.contexto') || '' },
+  set contexto(v){ gravarCfg('ponte.contexto', v) },
+  get rate(){ return parseFloat(lerCfg('ponte.rate') || '0.95') },
+  set rate(v){ gravarCfg('ponte.rate', String(v)) },
+  get autoStop(){ return lerCfg('ponte.autostop') !== '0' },
+  set autoStop(v){ gravarCfg('ponte.autostop', v ? '1' : '0') },
+  get mic(){ return lerCfg('ponte.mic') || '' },
+  set mic(v){ gravarCfg('ponte.mic', v) },
+  get estereo(){ return lerCfg('ponte.estereo') === '1' },
+  set estereo(v){ gravarCfg('ponte.estereo', v ? '1' : '0') },
+  get ladoPT(){ return lerCfg('ponte.ladopt') || 'L' },
+  set ladoPT(v){ gravarCfg('ponte.ladopt', v) },
+  get modelTTS(){ return lerCfg('ponte.modeltts') || 'gemini-2.5-flash-tts' },
+  set modelTTS(v){ gravarCfg('ponte.modeltts', v) },
+  get voz(){ return lerCfg('ponte.voz') || 'Kore' },
+  set voz(v){ gravarCfg('ponte.voz', v) },
+  get gloss(){ try{ return JSON.parse(lerCfg('ponte.gloss') || '[]') }catch(e){ return [] } },
+  set gloss(v){ gravarCfg('ponte.gloss', JSON.stringify(v)) },
+  get hist(){ try{ return JSON.parse(lerCfg('ponte.hist') || '[]') }catch(e){ return [] } },
+  set hist(v){ gravarCfg('ponte.hist', JSON.stringify(v.slice(-300))) }
 };
 
 const $ = s => document.querySelector(s);
@@ -1042,11 +1064,44 @@ function pintar(lado, dados){
   ultimaFala[lado] = dados.texto;
 }
 
+const DICA = {
+  pt:'Toque no botão e fale.<br>Vou traduzir para o japonês.',
+  ja:'ボタンを押して話してください。<br>ポルトガル語に翻訳します。'
+};
+
 function erro(lado, tipo){
   const p = $('#' + LANG[lado].pane);
   p.className = 'pane empty';
   p.innerHTML = '';
+  p.dataset.erro = tipo;               // permite apagar depois o que já foi resolvido
   p.appendChild(el('div','err', ERRO[lado][tipo] || ERRO[lado].geral));
+}
+
+function limparPainel(lado){
+  const p = $('#' + LANG[lado].pane);
+  p.className = 'pane empty';
+  p.innerHTML = '';
+  delete p.dataset.erro;
+  const h = el('div','hint');
+  h.innerHTML = DICA[lado];
+  p.appendChild(h);
+  ultimaFala[lado] = '';
+}
+
+/* Sem isto, o aviso "falta configurar a chave" continuava na tela depois de a
+   chave ter sido colada: nada reavaliava o estado, e o usuário não tinha como
+   saber que já podia usar. Roda ao fechar as configurações. */
+function revisarEstado(){
+  if(!S.proxy && !S.key){
+    status('Configure a chave da API em ⚙', 'bad');
+    return;
+  }
+  for(const l of ['pt','ja']){
+    if($('#' + LANG[l].pane).dataset.erro === 'chave') limparPainel(l);
+  }
+  status(persisteOk ? 'Pronto'
+                    : 'Chave válida só nesta aba — o navegador está bloqueando o armazenamento',
+         persisteOk ? '' : 'bad');
 }
 
 function travar(v){
@@ -1164,11 +1219,15 @@ document.querySelectorAll('[data-replay]').forEach(b => {
 
 function abrir(sel){ $(sel).classList.add('on'); }
 function fechar(sel){ $(sel).classList.remove('on'); }
+function fecharModal(m){
+  m.classList.remove('on');
+  if(m.id === 'mCfg') revisarEstado();
+}
 document.querySelectorAll('[data-close]').forEach(b => {
-  b.addEventListener('click', () => b.closest('.modal').classList.remove('on'));
+  b.addEventListener('click', () => fecharModal(b.closest('.modal')));
 });
 document.querySelectorAll('.modal').forEach(m => {
-  m.addEventListener('click', e => { if(e.target === m) m.classList.remove('on'); });
+  m.addEventListener('click', e => { if(e.target === m) fecharModal(m); });
 });
 
 $('#bCfg').addEventListener('click', () => {
@@ -1185,6 +1244,7 @@ $('#bCfg').addEventListener('click', () => {
   opcaoTTS(S.modelTTS);
   pintarVozes();
   pintarMics();
+  revisarChave();
   abrir('#mCfg');
 });
 $('#bGloss').addEventListener('click',  () => { pintarGloss();  abrir('#mGloss') });
@@ -1192,8 +1252,33 @@ $('#bHist').addEventListener('click',   () => { pintarHist();   abrir('#mHist') 
 $('#bPhrase').addEventListener('click', () => { liberarAudio(); abrir('#mPhrase') });
 
 $('#iContexto').addEventListener('input', e => S.contexto = e.target.value.trim());
-$('#iKey').addEventListener('input',   e => S.key = e.target.value.trim());
-$('#iProxy').addEventListener('input', e => S.proxy = e.target.value.trim());
+$('#iKey').addEventListener('input',   e => { S.key = e.target.value.trim(); revisarChave(); });
+$('#iProxy').addEventListener('input', e => { S.proxy = e.target.value.trim(); revisarChave(); });
+
+/* Confere na hora o que foi colado. Os dois enganos comuns são colar a chave
+   no campo do servidor (ou o contrário) e colar só um pedaço dela; sem este
+   aviso, os dois só apareceriam como falha de tradução mais tarde. */
+function revisarChave(){
+  const v = $('#iKey').value.trim(), out = $('#keyOut');
+  if(!persisteOk){
+    out.innerHTML = '<span class="pill no">⚠ Este navegador não está salvando dados. A chave vale só enquanto a aba estiver aberta — saia da navegação privada.</span>';
+    return;
+  }
+  if(!v){
+    out.innerHTML = S.proxy
+      ? '<span class="pill ok">✓ Usando o servidor intermediário</span>'
+      : '<span class="pill no">Sem chave — cole a chave acima</span>';
+    return;
+  }
+  if(/^https?:\/\//i.test(v)){
+    out.innerHTML = '<span class="pill no">✗ Isso é um endereço, não uma chave — ele vai no campo "Servidor intermediário", abaixo</span>';
+  }else if(!/^AIza[\w-]{30,}$/.test(v)){
+    out.innerHTML = '<span class="pill no">✗ Formato incomum (' + v.length +
+      ' caracteres). A chave do Google começa com AIza e tem ~39 caracteres — pode ter sido colada pela metade.</span>';
+  }else{
+    out.innerHTML = '<span class="pill ok">✓ Chave salva neste aparelho — toque em "Testar conexão"</span>';
+  }
+}
 $('#iModel').addEventListener('change',e => S.model = e.target.value);
 $('#iAuto').addEventListener('change', e => S.autoStop = e.target.checked);
 $('#iRate').addEventListener('input',  e => {
