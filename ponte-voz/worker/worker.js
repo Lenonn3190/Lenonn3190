@@ -41,16 +41,21 @@ export default {
     const tamanho = Number(req.headers.get('content-length') || 0);
     if (tamanho > 8 * 1024 * 1024) return json({ error: 'corpo grande demais' }, 413, cors);
 
-    // Repassa os parâmetros da chamada, mas a chave é sempre a do servidor.
+    // Repassa os parâmetros da chamada, menos qualquer key vinda do cliente.
     const alvo = new URL(UPSTREAM + u.pathname);
     for (const [k, v] of u.searchParams) if (k !== 'key') alvo.searchParams.set(k, v);
-    alvo.searchParams.set('key', env.GEMINI_API_KEY);
 
     let r;
     try {
       r = await fetch(alvo.toString(), {
         method: req.method,
-        headers: { 'Content-Type': req.headers.get('content-type') || 'application/json' },
+        headers: {
+          'Content-Type': req.headers.get('content-type') || 'application/json',
+          // Cabeçalho em vez de ?key=: é o que o Google recomenda, e as chaves
+          // no formato novo (AQ.…) são recusadas por alguns endpoints quando
+          // vão na query.
+          'x-goog-api-key': env.GEMINI_API_KEY
+        },
         body: req.method === 'GET' ? undefined : req.body
       });
     } catch (e) {

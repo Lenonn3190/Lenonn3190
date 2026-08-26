@@ -49,6 +49,8 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Cada um ouvir a língua que não entende | Modo fone separa as vozes por lado do par Bluetooth |
 | TTS do Gemini fora do ar | Cai para a síntese do aparelho e avisa, em vez de ficar mudo |
 | Modelo de voz descontinuado | O seletor de modelo de voz também é preenchido pela API |
+| Mudança no formato da chave | Aceita `AQ.` e `AIza`, e avisa que o formato antigo se encerra em setembro de 2026 |
+| Cabeçalho de autenticação barrado | *Testar conexão* detecta e cai para `?key=`, guardando o método que funciona |
 
 ---
 
@@ -56,8 +58,16 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 
 ### 1. Pegue a chave da API (grátis)
 
-Em <https://aistudio.google.com/apikey>, crie uma chave. Ela começa com `AIza…`.
-O nível gratuito do Gemini cobre com folga um dia inteiro de conversa.
+Em <https://aistudio.google.com/apikey>, crie uma chave. As novas vêm no
+formato `AQ.Ab8…`; o formato antigo `AIza…` ainda é aceito pelo app, mas o
+Google encerra essas chaves em **setembro de 2026**, então prefira gerar uma
+nova. O nível gratuito cobre com folga um dia inteiro de conversa.
+
+A chave vai no cabeçalho `x-goog-api-key`, não em `?key=`: é o que o Google
+recomenda, é o que funciona com as chaves novas, e mantém a chave fora da URL
+(que vaza em log e histórico). Se o cabeçalho for barrado no seu ambiente, o
+botão *Testar conexão* detecta e cai para `?key=` sozinho, avisando qual dos
+dois está em uso.
 
 **Assinatura Gemini Pro não serve aqui.** As assinaturas de consumidor (Google
 AI Pro / Ultra) valem dentro do app do Gemini e do AI Studio; o uso por chave

@@ -243,8 +243,8 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
   <div class="body">
     <h3>Chave da API do Google Gemini</h3>
     <p>Pegue a sua gratuitamente em <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com/apikey</a>. Ela fica salva só neste celular e nunca é enviada para outro lugar além do Google.</p>
-    <label for="iKey">Chave (AIza…)</label>
-    <input type="password" id="iKey" placeholder="AIzaSy…" autocomplete="off" spellcheck="false" />
+    <label for="iKey">Chave (AQ.… ou AIza…)</label>
+    <input type="password" id="iKey" placeholder="AQ.Ab8…" autocomplete="off" spellcheck="false" />
     <div id="keyOut" style="margin:-6px 0 14px"></div>
 
     <label for="iProxy">Servidor intermediário (opcional)</label>
@@ -549,6 +549,11 @@ function gravarCfg(k, v){
 }
 
 const S = {
+  /* Como a chave é enviada: 'header' (x-goog-api-key, o recomendado) ou
+     'query' (?key=, o formato antigo). O botão "Testar conexão" descobre
+     qual dos dois a chave aceita e guarda aqui. */
+  get auth(){ return lerCfg('ponte.auth') || 'header' },
+  set auth(v){ gravarCfg('ponte.auth', v) },
   get key(){ return lerCfg('ponte.key') || '' },
   set key(v){ gravarCfg('ponte.key', v) },
   get proxy(){ return (lerCfg('ponte.proxy') || '').replace(/\/+$/,'') },
@@ -837,10 +842,23 @@ const ESQUEMA = {
   required:['source_text','source_reading','target_text','target_reading','note']
 };
 
-function url(caminho, query){
-  if(S.proxy) return S.proxy + caminho + (query ? '?' + query : '');
-  const k = 'key=' + encodeURIComponent(S.key);
-  return 'https://generativelanguage.googleapis.com/v1beta' + caminho + '?' + (query ? query + '&' : '') + k;
+/**
+ * Monta endereço e cabeçalhos de uma chamada.
+ *
+ * A chave vai no cabeçalho x-goog-api-key, não em ?key=. São duas razões:
+ * o Google passou a recomendar o cabeçalho, e as chaves no formato novo
+ * (AQ.…) são recusadas por alguns endpoints quando mandadas na query.
+ * De quebra, a chave deixa de aparecer na URL, que vaza em log e histórico.
+ */
+function pedido(caminho, query, modo){
+  const q = query ? '?' + query : '';
+  if(S.proxy) return { alvo:S.proxy + caminho + q, cab:{} };
+
+  const base = 'https://generativelanguage.googleapis.com/v1beta' + caminho;
+  if((modo || S.auth) === 'query'){
+    return { alvo:base + q + (q ? '&' : '?') + 'key=' + encodeURIComponent(S.key), cab:{} };
+  }
+  return { alvo:base + q, cab:{ 'x-goog-api-key':S.key } };
 }
 
 async function traduzir(b64Wav, de, para){
@@ -862,7 +880,7 @@ async function traduzir(b64Wav, de, para){
                    .map(c => ({ category:c, threshold:'BLOCK_ONLY_HIGH' }))
   };
 
-  const alvo = url('/models/' + S.model + ':generateContent');
+  const { alvo, cab } = pedido('/models/' + S.model + ':generateContent');
   let ultimo;
 
   for(let tentativa = 0; tentativa < 2; tentativa++){
@@ -871,7 +889,7 @@ async function traduzir(b64Wav, de, para){
     try{
       const r = await fetch(alvo, {
         method:'POST',
-        headers:{ 'Content-Type':'application/json' },
+        headers:Object.assign({ 'Content-Type':'application/json' }, cab),
         body:JSON.stringify(corpo),
         signal:ab.signal
       });
@@ -964,8 +982,10 @@ async function ttsGemini(texto){
   const t = setTimeout(() => ab.abort(), 30000);
   let r;
   try{
-    r = await fetch(url('/models/' + S.modelTTS + ':generateContent'), {
-      method:'POST', headers:{ 'Content-Type':'application/json' },
+    const p = pedido('/models/' + S.modelTTS + ':generateContent');
+    r = await fetch(p.alvo, {
+      method:'POST',
+      headers:Object.assign({ 'Content-Type':'application/json' }, p.cab),
       body:JSON.stringify(corpo), signal:ab.signal
     });
   }finally{ clearTimeout(t); }
@@ -1272,11 +1292,16 @@ function revisarChave(){
   }
   if(/^https?:\/\//i.test(v)){
     out.innerHTML = '<span class="pill no">✗ Isso é um endereço, não uma chave — ele vai no campo "Servidor intermediário", abaixo</span>';
-  }else if(!/^AIza[\w-]{30,}$/.test(v)){
-    out.innerHTML = '<span class="pill no">✗ Formato incomum (' + v.length +
-      ' caracteres). A chave do Google começa com AIza e tem ~39 caracteres — pode ter sido colada pela metade.</span>';
-  }else{
+  }else if(/^AQ\.[\w-]{20,}$/.test(v)){
     out.innerHTML = '<span class="pill ok">✓ Chave salva neste aparelho — toque em "Testar conexão"</span>';
+  }else if(/^AIza[\w-]{30,}$/.test(v)){
+    // O Google encerra as chaves AIza em setembro de 2026; avisar antes é
+    // melhor do que a tradução parar de funcionar no meio da visita.
+    out.innerHTML = '<span class="pill ok">✓ Chave salva neste aparelho</span>' +
+      '<span class="pill no">⚠ Formato antigo (AIza). O Google encerra essas chaves em setembro de 2026 — gere uma nova no AI Studio, que virá no formato AQ.</span>';
+  }else{
+    out.innerHTML = '<span class="pill no">✗ Formato incomum (' + v.length +
+      ' caracteres). A chave do Google começa com <b>AQ.</b> (ou <b>AIza</b>, formato antigo) — pode ter sido colada pela metade.</span>';
   }
 }
 $('#iModel').addEventListener('change',e => S.model = e.target.value);
@@ -1318,13 +1343,52 @@ function melhorVoz(lista){
   return lista.find(n => !/preview/.test(n)) || lista[0];
 }
 
+/**
+ * Lista os modelos, descobrindo como esta chave aceita ser enviada.
+ *
+ * O cabeçalho x-goog-api-key é o recomendado e o único que funciona com
+ * parte das chaves novas; mas ele exige preflight de CORS, que nem todo
+ * ambiente deixa passar. Em vez de apostar num dos dois, tenta o
+ * recomendado e cai para ?key= se ele falhar — e devolve qual funcionou,
+ * para as chamadas seguintes já irem direto no método certo.
+ */
+async function listarModelos(){
+  if(S.proxy){
+    const p = pedido('/models', 'pageSize=200');
+    const r = await fetch(p.alvo, { headers:p.cab });
+    if(!r.ok) throw new Error(descreveHttp(r.status));
+    return { j: await r.json(), modo:null };
+  }
+
+  let ultimo = null;
+  for(const modo of ['header', 'query']){
+    try{
+      const p = pedido('/models', 'pageSize=200', modo);
+      const r = await fetch(p.alvo, { headers:p.cab });
+      if(!r.ok){ ultimo = new Error(descreveHttp(r.status)); continue; }
+      return { j: await r.json(), modo };
+    }catch(e){
+      // TypeError aqui costuma ser CORS barrando o preflight do cabeçalho
+      ultimo = e;
+    }
+  }
+  throw ultimo || new Error('não foi possível falar com a API');
+}
+
+function descreveHttp(s){
+  return 'HTTP ' + s + ' — ' +
+    (s === 403 || s === 400 ? 'chave inválida ou sem permissão'
+     : s === 429 ? 'cota esgotada'
+     : 'servidor recusou');
+}
+
 $('#bTest').addEventListener('click', async () => {
   const b = $('#bTest'), out = $('#testOut');
   b.disabled = true; b.textContent = 'Testando…'; out.innerHTML = '';
   try{
-    const r = await fetch(url('/models', 'pageSize=200'));
-    if(!r.ok) throw new Error('HTTP ' + r.status + ' — ' + (r.status === 403 || r.status === 400 ? 'chave inválida ou sem permissão' : 'servidor recusou'));
-    const j = await r.json();
+    const { j, modo } = await listarModelos();
+    if(modo && modo !== S.auth) S.auth = modo;
+
     const todos = (j.models || [])
       .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
       .map(m => m.name.replace('models/',''))
@@ -1352,7 +1416,9 @@ $('#bTest').addEventListener('click', async () => {
     out.innerHTML = '<span class="pill ok">✓ Conectado — ' + lista.length + ' modelos de tradução</span>' +
       '<span class="pill ' + (vozes.length ? 'ok' : 'no') + '">' +
       (vozes.length ? '✓ ' + vozes.length + ' modelo(s) de voz' : '✗ Nenhum modelo de voz — modo fone indisponível') +
-      '</span>';
+      '</span>' +
+      (S.proxy ? '' : '<span class="pill">Chave enviada por ' +
+        (S.auth === 'query' ? '?key= (formato antigo)' : 'cabeçalho x-goog-api-key') + '</span>');
   }catch(e){
     out.innerHTML = '<span class="pill no">✗ ' + esc(e.message) + '</span>';
   }
