@@ -277,7 +277,8 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
     <p>Se faltar a voz em japonês, instale o pacote de idioma do aparelho (Android: <em>Configurações → Sistema → Idiomas → Conversão de texto em voz</em>). Sem ela o texto ainda aparece na tela, mas não é falado.</p>
 
     <h3>Modo fone: cada um em um lado</h3>
-    <p>Com um par de fones Bluetooth, cada pessoa usa um lado e ouve <b>só a tradução dirigida a ela</b>. Exige os <b>dois</b> fones fora do estojo (um sozinho vira mono) e usa o TTS do Gemini, o que acrescenta 1-2 s por fala.</p>
+    <p>Com um par de fones Bluetooth, cada pessoa usa um lado e ouve <b>só a tradução dirigida a ela</b>. Exige os <b>dois</b> fones fora do estojo — um sozinho vira mono.</p>
+    <p><b>Custo medido:</b> a voz do aparelho sai na hora; a do Gemini (única que dá para separar por lado) leva <b>~3 s</b>. O texto aparece na tela antes, e o microfone é liberado na hora, então dá para seguir conversando enquanto a voz vem. Frases repetidas saem instantâneas.</p>
     <label style="display:flex;align-items:center;gap:10px;margin-bottom:13px">
       <input type="checkbox" id="iEstereo" style="width:20px;height:20px;flex:none;margin:0" />
       <span style="font-weight:600;color:var(--txt)">Separar as vozes por lado do fone</span>
@@ -1124,7 +1125,18 @@ function falar(texto, lang){
    devolve o áudio como dados e pode ser roteado por um StereoPannerNode.
    Custa uma chamada a mais (~1-2 s) e por isso fica desligado por padrão. */
 
+/* Numa fábrica as mesmas frases voltam o tempo todo ("pare a linha", "está
+   fora da tolerância"). Guardar o áudio já gerado torna a repetição
+   instantânea, em vez de custar outros ~3 s. Poucas entradas: cada uma é
+   PCM decodificado e ocupa centenas de KB. */
+const cacheVoz = new Map();
+const CACHE_VOZ_MAX = 20;
+let vozEmVoo = null;
+
 async function ttsGemini(texto){
+  const chave = S.modelTTS + '|' + S.voz + '|' + texto;
+  if(cacheVoz.has(chave)) return cacheVoz.get(chave);
+
   const corpo = {
     contents:[{ parts:[{ text: texto }] }],
     generationConfig:{
@@ -1133,6 +1145,7 @@ async function ttsGemini(texto){
     }
   };
   const ab = new AbortController();
+  vozEmVoo = ab;
   const t = setTimeout(() => ab.abort(), 30000);
   let r;
   try{
@@ -1152,7 +1165,10 @@ async function ttsGemini(texto){
 
   // o Gemini devolve PCM cru: audio/L16;codec=pcm;rate=24000
   const m = /rate=(\d+)/.exec(dado.mimeType || dado.mime_type || '');
-  return pcmParaBuffer(dado.data, m ? parseInt(m[1], 10) : 24000);
+  const buf = pcmParaBuffer(dado.data, m ? parseInt(m[1], 10) : 24000);
+  if(cacheVoz.size >= CACHE_VOZ_MAX) cacheVoz.delete(cacheVoz.keys().next().value);
+  cacheVoz.set(chave, buf);
+  return buf;
 }
 
 function pcmParaBuffer(b64, taxa){
@@ -1193,13 +1209,18 @@ async function entregarVoz(texto, lang){
   if(!texto) return;
   if(!S.estereo || !window.AudioContext && !window.webkitAudioContext){ falar(texto, lang); return; }
   if(!ctx().createStereoPanner){ falar(texto, lang); return; }
+
+  const meu = {};
+  entregarVoz._atual = meu;
   try{
-    status('Gerando voz…', 'busy');
-    tocarNoLado(await ttsGemini(texto), ladoDe(lang));
+    const buf = await ttsGemini(texto);
+    // outra fala começou enquanto esta era gerada: descarta a antiga
+    if(entregarVoz._atual !== meu) return;
+    tocarNoLado(buf, ladoDe(lang));
   }catch(e){
+    if(entregarVoz._atual !== meu || e.name === 'AbortError') return;
     falar(texto, lang);
     status('Voz por lado indisponível — falando nos dois fones', 'bad');
-    return;
   }
 }
 
@@ -1301,6 +1322,11 @@ async function turno(de){
   // tocando grava a própria voz sintetizada junto com a fala — e ela entra
   // na transcrição. Acontece o tempo todo numa conversa de ritmo normal.
   if(window.speechSynthesis){ try{ speechSynthesis.cancel() }catch(e){} }
+  // Com o microfone liberado durante a geração de voz, uma fala nova pode
+  // começar antes de a anterior ficar pronta. Sem isto, a voz atrasada
+  // chegaria depois e atropelaria a conversa.
+  if(vozEmVoo){ try{ vozEmVoo.abort() }catch(e){} vozEmVoo = null; }
+  if(tocandoAgora){ try{ tocandoAgora.stop() }catch(e){} tocandoAgora = null; }
 
   if(!S.proxy && !S.key){ erro('pt','chave'); erro('ja','chave'); abrir('#mCfg'); return; }
 
@@ -1364,8 +1390,12 @@ async function turno(de){
     };
     S.hist = S.hist.concat([reg]);
 
-    await entregarVoz(esc(r.target_text), para);
-    if($('#status').className !== 'bad') status('Pronto');
+    // O texto já está na tela: a conversa pode seguir enquanto a voz é
+    // gerada. Antes o microfone ficava travado os ~3 s do TTS, e era isso
+    // que fazia o app parecer lento — não a tradução em si.
+    status('Pronto');
+    travar(false);
+    entregarVoz(esc(r.target_text), para);   // sem await, de propósito
 
   }catch(e){
     const tipo = e.message === 'chave' ? 'chave'

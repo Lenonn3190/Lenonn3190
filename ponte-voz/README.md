@@ -54,6 +54,9 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Modelo indisponível (404), aposentado ou sobrecarregado (503) | O app desce para o próximo modelo e refaz a tradução sozinho |
 | Modelo pendurado | Corta em 30 s e troca de modelo, em vez de acusar falta de internet |
 | Latência alta | `thinkingLevel: LOW` — medido: 6,1 s → 2,4 s |
+| Voz demorando e travando a conversa | O microfone é liberado com o texto; a voz chega depois, em segundo plano |
+| Mesma frase repetida | O áudio já gerado é reaproveitado, sem nova chamada |
+| Voz atrasada atropelando a fala seguinte | Uma fala nova cancela a voz anterior |
 | Erro da API ilegível na barra de status | O texto completo aparece no painel, que quebra linha e rola |
 
 ---
@@ -230,9 +233,16 @@ Três coisas a saber:
 
 - **Os dois fones precisam estar fora do estojo.** Um fone sozinho entra em
   modo mono e passa a tocar a mistura dos dois canais.
-- **Custa 1-2 s a mais por fala.** `speechSynthesis` não passa pelo Web Audio,
-  então não há como panoramizá-la; este modo usa o TTS do Gemini, que devolve
-  o áudio como dados e pode ser roteado. Por isso vem desligado por padrão.
+- **A voz leva ~3 s** (medido nos dois modelos de TTS do Gemini; trocar de
+  modelo não muda nada). `speechSynthesis` não passa pelo Web Audio, então
+  não há como panoramizá-la — o TTS do Gemini é a única saída que pode ser
+  roteada por lado. Por isso o modo vem desligado por padrão.
+
+  Esses 3 s quase não aparecem no uso: o texto entra na tela antes, **o
+  microfone é liberado na hora** e a conversa segue enquanto a voz é gerada.
+  Frases repetidas — e numa fábrica elas repetem muito — saem instantâneas,
+  porque o áudio fica guardado. Se alguém emenda a próxima fala, a voz
+  anterior é cancelada em vez de chegar atrasada e atropelar.
 - **Não use o microfone dos fones neste modo.** Ao ativar o microfone
   Bluetooth, o aparelho troca o perfil de áudio para mono e a separação de
   canais desaparece. Deixe o microfone no do celular ou num headset com fio.
