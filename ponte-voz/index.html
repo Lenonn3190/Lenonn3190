@@ -81,6 +81,12 @@ input,select,textarea{font-family:inherit;font-size:16px}
   background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:#fcd34d;
 }
 .err{color:#fca5a5;font-size:16px;font-weight:600;text-align:center;line-height:1.5}
+.detalhe{
+  margin-top:12px;padding:9px 11px;border-radius:9px;max-height:130px;overflow-y:auto;
+  background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.28);
+  color:#fca5a5;font-size:11.5px;line-height:1.45;text-align:left;
+  font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+}
 
 /* ============ BOTÃO DE MICROFONE ============ */
 .mic{
@@ -558,7 +564,10 @@ const S = {
   set key(v){ gravarCfg('ponte.key', v) },
   get proxy(){ return (lerCfg('ponte.proxy') || '').replace(/\/+$/,'') },
   set proxy(v){ gravarCfg('ponte.proxy', v) },
-  get model(){ return lerCfg('ponte.model') || 'gemini-3.7-flash' },
+  /* Alias, não versão fixa: a disponibilidade de modelo varia por conta, e
+     fixar um nome que a conta não tem dá 404 antes de qualquer tradução.
+     O alias acompanha o flash mais novo que a chave realmente enxerga. */
+  get model(){ return lerCfg('ponte.model') || 'gemini-flash-latest' },
   set model(v){ gravarCfg('ponte.model', v) },
   get contexto(){ return lerCfg('ponte.contexto') || '' },
   set contexto(v){ gravarCfg('ponte.contexto', v) },
@@ -861,6 +870,27 @@ function pedido(caminho, query, modo){
   return { alvo:base + q, cab:{ 'x-goog-api-key':S.key } };
 }
 
+/**
+ * Pergunta à API quais modelos esta chave realmente tem e adota um deles.
+ * Devolve o nome adotado, ou null se não houver troca a fazer.
+ */
+async function trocarPorModeloValido(){
+  try{
+    const { j, modo } = await listarModelos();
+    if(modo && modo !== S.auth) S.auth = modo;
+    const lista = (j.models || [])
+      .filter(m => (m.supportedGenerationMethods || []).includes('generateContent'))
+      .map(m => m.name.replace('models/',''))
+      .filter(n => /gemini/.test(n) && !/embedding|aqa|image|tts/.test(n))
+      .sort(porVersao);
+    if(!lista.length) return null;
+    const novo = melhorTraducao(lista);
+    if(!novo || novo === S.model) return null;
+    S.model = novo;
+    return novo;
+  }catch(e){ return null; }
+}
+
 async function traduzir(b64Wav, de, para){
   const corpo = {
     contents:[{ parts:[
@@ -880,10 +910,12 @@ async function traduzir(b64Wav, de, para){
                    .map(c => ({ category:c, threshold:'BLOCK_ONLY_HIGH' }))
   };
 
-  const { alvo, cab } = pedido('/models/' + S.model + ':generateContent');
   let ultimo;
 
   for(let tentativa = 0; tentativa < 2; tentativa++){
+    // dentro do laço de propósito: se a tentativa anterior trocou o modelo,
+    // a repetição precisa apontar para o novo
+    const { alvo, cab } = pedido('/models/' + S.model + ':generateContent');
     const ab = new AbortController();
     const t = setTimeout(() => ab.abort(), 45000);
     try{
@@ -899,13 +931,27 @@ async function traduzir(b64Wav, de, para){
         const txt = await r.text().catch(() => '');
         if(r.status === 400 && /API key|API_KEY/i.test(txt)) throw new Error('chave');
         if(r.status === 403) throw new Error('chave');
+
+        // 404 aqui quer dizer "esta conta não tem esse modelo" — a
+        // disponibilidade varia por chave. Em vez de devolver o erro,
+        // pergunta à API quais modelos existem, troca e refaz a chamada.
+        if(r.status === 404 && tentativa === 0 && !S.proxy){
+          const trocou = await trocarPorModeloValido();
+          if(trocou){
+            ultimo = new Error('modelo trocado para ' + trocou);
+            continue;
+          }
+        }
+
         // 429 e 5xx merecem uma segunda tentativa
         if((r.status === 429 || r.status >= 500) && tentativa === 0){
           ultimo = new Error('http ' + r.status);
           await new Promise(res => setTimeout(res, 1200));
           continue;
         }
-        throw new Error('http ' + r.status + ' ' + txt.slice(0, 180));
+        const e = new Error('http ' + r.status);
+        e.detalhe = (txt || '').slice(0, 600);
+        throw e;
       }
 
       const j = await r.json();
@@ -1089,12 +1135,15 @@ const DICA = {
   ja:'ボタンを押して話してください。<br>ポルトガル語に翻訳します。'
 };
 
-function erro(lado, tipo){
+function erro(lado, tipo, detalhe){
   const p = $('#' + LANG[lado].pane);
   p.className = 'pane empty';
   p.innerHTML = '';
   p.dataset.erro = tipo;               // permite apagar depois o que já foi resolvido
   p.appendChild(el('div','err', ERRO[lado][tipo] || ERRO[lado].geral));
+  // A barra de status é de uma linha com reticências: um erro da API ficava
+  // ilegível justamente quando era mais preciso. Aqui ele cabe e quebra linha.
+  if(detalhe && lado === 'pt') p.appendChild(el('div','detalhe', detalhe));
 }
 
 function limparPainel(lado){
@@ -1214,10 +1263,16 @@ async function turno(de){
   }catch(e){
     const tipo = e.message === 'chave' ? 'chave'
                : (e.name === 'AbortError' || e instanceof TypeError) ? 'rede' : 'geral';
-    erro(de, tipo); erro(para, tipo);
+    let detalhe = e.detalhe || '';
+    if(/http 404/.test(e.message)){
+      detalhe = 'O modelo "' + S.model + '" não existe para esta chave, e não achei ' +
+                'outro para trocar. Abra ⚙ e toque em "Testar conexão" para ver a ' +
+                'lista real de modelos da sua conta.\n\n' + detalhe;
+    }
+    erro(de, tipo, detalhe); erro(para, tipo);
     status(tipo === 'chave' ? 'Chave da API inválida — toque em ⚙'
          : tipo === 'rede'  ? 'Sem internet ou servidor fora do ar'
-         : 'Erro: ' + e.message, 'bad');
+         : 'Erro: ' + e.message + ' — detalhes no painel', 'bad');
   }finally{
     travar(false);
   }

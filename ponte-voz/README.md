@@ -51,6 +51,8 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Modelo de voz descontinuado | O seletor de modelo de voz também é preenchido pela API |
 | Mudança no formato da chave | Aceita `AQ.` e `AIza`, e avisa que o formato antigo se encerra em setembro de 2026 |
 | Cabeçalho de autenticação barrado | *Testar conexão* detecta e cai para `?key=`, guardando o método que funciona |
+| Modelo indisponível nesta conta (404) | O app lista os modelos reais da chave, troca e refaz a tradução sozinho |
+| Erro da API ilegível na barra de status | O texto completo aparece no painel, que quebra linha e rola |
 
 ---
 
@@ -160,9 +162,19 @@ apaga nem duplica o que você já tinha.
 
 ## Qual modelo usar
 
-O app já vem no `gemini-3.7-flash`. Em **⚙ → Testar conexão** a lista é
-preenchida pela própria API e ordenada da versão mais nova para a mais
-antiga, então ela acompanha os lançamentos sem precisar mexer no código.
+O app vem no alias `gemini-flash-latest`, e não numa versão fixa: a
+disponibilidade de modelo **varia por conta**, e fixar um nome que a sua chave
+não tem dá 404 antes da primeira tradução. O alias acompanha o flash mais novo
+que a chave enxerga.
+
+Se ainda assim vier 404, o app pergunta à API quais modelos a conta tem, adota
+um deles e refaz a tradução sozinho — sem você precisar fazer nada. Só quando
+não há nenhum modelo utilizável é que ele mostra o erro, com a mensagem
+literal da API e o que fazer.
+
+Em **⚙ → Testar conexão** a lista é preenchida pela própria API e ordenada da
+versão mais nova para a mais antiga, então acompanha os lançamentos sem
+precisar mexer no código.
 
 Vale usar um modelo **Pro**? Em geral não, para este uso. Numa conversa cara a
 cara a latência pesa mais que o último ponto de qualidade: um Pro acrescenta
