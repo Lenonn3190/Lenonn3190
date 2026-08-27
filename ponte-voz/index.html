@@ -121,7 +121,9 @@ input,select,textarea{font-family:inherit;font-size:16px}
 }
 .bar button:active{background:var(--line)}
 #status{
-  flex:1;text-align:center;font-size:12.5px;color:var(--faint);font-weight:600;
+  /* min-width com flex:1 evita que um botão a mais reduza o status a
+     duas letras — é nele que aparecem tempo, tamanho e erros. */
+  flex:1;min-width:78px;text-align:center;font-size:12.5px;color:var(--faint);font-weight:600;
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
 }
 #status.busy{color:var(--brand)}
@@ -200,6 +202,14 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
 .pill.ok{color:#86efac;border-color:rgba(34,197,94,.45);background:rgba(34,197,94,.1)}
 .pill.no{color:#fca5a5;border-color:rgba(239,68,68,.45);background:rgba(239,68,68,.1)}
 
+/* Em telas estreitas, seis elementos na barra só cabem com menos
+   preenchimento nos botões — o alternativo seria espremer o status, que é
+   onde aparecem tempo, tamanho e erros. */
+@media (max-width:380px){
+  .bar{gap:6px;padding:7px 8px}
+  .bar button{padding:8px 8px}
+}
+
 @media (max-height:640px){
   .txt{font-size:21px} .side.ja .txt{font-size:22px}
   .mic{height:64px;font-size:18px}
@@ -225,6 +235,7 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
   <div class="bar">
     <button id="bGloss">用語集</button>
     <button id="bPhrase">📖</button>
+    <button id="bInstalar" hidden aria-label="Instalar no celular">📲</button>
     <div id="status">Pronto</div>
     <button id="bHist">🕘</button>
     <button id="bCfg">⚙</button>
@@ -300,6 +311,11 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
     <div id="ladoOut" style="margin-bottom:8px"></div>
     <label for="iModelTTS">Modelo de voz</label>
     <select id="iModelTTS"><option value="gemini-2.5-flash-preview-tts">gemini-2.5-flash-preview-tts</option></select>
+
+    <h3>Instalar no celular</h3>
+    <p>Instalado, o app abre em tela cheia por um ícone próprio, sem a barra do navegador — mais espaço para o texto e mais fácil de achar no meio da visita. Continua sendo o mesmo endereço; nada é baixado de loja.</p>
+    <button class="btn sec" id="bInstalarCfg">Instalar agora</button>
+    <div id="instalarOut" style="margin-bottom:8px"></div>
 
     <h3>Mãos livres</h3>
     <p>O microfone fica aberto, o app detecta sozinho quando alguém fala, identifica se foi português ou japonês e traduz para o outro. Ninguém toca em botão.</p>
@@ -1655,7 +1671,7 @@ async function turnoAuto(pedacos){
 
     const seg = ((Date.now() - t0) / 1000).toFixed(1).replace('.', ',');
     const kb = Math.round(wavData.b64.length * 0.75 / 1024);
-    status((de === 'pt' ? 'BR→JP' : 'JP→BR') + ' · ' + seg + 's · ' + kb + ' KB');
+    status((de === 'pt' ? 'BR→JP' : 'JP→BR') + '  ' + seg + 's  ' + kb + ' KB');
     ocupado = false;
     entregarVoz(esc(r.target_text), para);
 
@@ -1761,7 +1777,7 @@ async function turno(de){
     const ms = Date.now() - t0;
     const seg = (ms / 1000).toFixed(1).replace('.', ',');
     const kb = Math.round(wavData.b64.length * 0.75 / 1024);
-    status('Pronto · ' + seg + 's · ' + kb + ' KB');
+    status('Pronto  ' + seg + 's  ' + kb + ' KB');
     travar(false);
 
     // Um turno lento que termina SEM erro não acionava a escada de modelos:
@@ -1799,6 +1815,78 @@ async function turno(de){
     travar(false);
   }
 }
+
+/* ==========================================================================
+   INSTALAR COMO APLICATIVO
+   ==========================================================================
+
+   O app já era instalável (manifest + service worker), mas isso ficava
+   escondido no menu do navegador e ninguém descobria. Aqui o convite fica
+   visível — e some sozinho depois de instalado.
+
+   O iPhone não dispara beforeinstallprompt: lá o único caminho é o menu de
+   compartilhar do Safari, então o que resta é instruir. */
+
+let convite = null;   // evento beforeinstallprompt guardado
+
+const ehIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+
+function jaInstalado(){
+  return (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+         navigator.standalone === true;
+}
+
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();          // sem isto o navegador mostra o próprio banner
+  convite = e;
+  revisarInstalar();
+});
+window.addEventListener('appinstalled', () => {
+  convite = null;
+  revisarInstalar();
+  status('Instalado — abra pelo ícone na tela inicial');
+});
+
+function revisarInstalar(){
+  const bar = $('#bInstalar');
+  if(bar) bar.hidden = jaInstalado() || !convite;
+
+  const out = $('#instalarOut'), bt = $('#bInstalarCfg');
+  if(!out || !bt) return;
+
+  if(jaInstalado()){
+    bt.hidden = true;
+    out.innerHTML = '<span class="pill ok">✓ Já está instalado neste aparelho</span>';
+  }else if(convite){
+    bt.hidden = false;
+    bt.textContent = 'Instalar agora';
+    out.innerHTML = '';
+  }else if(ehIOS){
+    bt.hidden = true;
+    out.innerHTML = '<span class="pill">No iPhone: toque no botão <b>Compartilhar</b> (o quadrado com a seta para cima), ' +
+                    'role e escolha <b>Adicionar à Tela de Início</b>. O Safari não permite que o app faça isso sozinho.</span>';
+  }else{
+    bt.hidden = true;
+    out.innerHTML = '<span class="pill">Use o menu do navegador → <b>Adicionar à tela inicial</b>. ' +
+                    'O convite automático só aparece em conexão HTTPS e depois de uma visita à página.</span>';
+  }
+}
+
+async function pedirInstalacao(){
+  if(!convite){ revisarInstalar(); return; }
+  convite.prompt();
+  const escolha = await convite.userChoice.catch(() => null);
+  // O evento só vale um uso: depois de exibido, precisa ser descartado.
+  convite = null;
+  revisarInstalar();
+  if(escolha && escolha.outcome !== 'accepted'){
+    const out = $('#instalarOut');
+    if(out) out.innerHTML = '<span class="pill">Instalação recusada. Dá para instalar depois pelo menu do navegador.</span>';
+  }
+}
+$('#bInstalar').addEventListener('click', pedirInstalacao);
+$('#bInstalarCfg').addEventListener('click', pedirInstalacao);
 
 /* ---------- mãos livres: ligar, desligar e mostrar o estado ---------- */
 
@@ -1906,6 +1994,7 @@ $('#bCfg').addEventListener('click', () => {
   $('#iAuto').checked = S.autoStop;
   $('#iRomaji').checked = S.romaji;
   $('#iMaos').checked = S.maosLivres;
+  revisarInstalar();
   opcaoModelo(S.model);
   $('#iEstereo').checked = S.estereo;
   $('#iLado').value = S.ladoPT;
@@ -2438,6 +2527,8 @@ if(S.maosLivres){
   status('Mãos livres ligado — toque na tela uma vez para liberar o microfone');
   document.addEventListener('click', () => { if(S.maosLivres && !escuta) ligarMaosLivres(); }, { once:true });
 }
+
+revisarInstalar();
 
 if('serviceWorker' in navigator && window.isSecureContext){
   window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));

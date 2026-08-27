@@ -63,6 +63,7 @@ A gravação **para sozinha** quando você fica ~1,6 s em silêncio, então na p
 | Voz demorando e travando a conversa | O microfone é liberado com o texto; a voz chega depois, em segundo plano |
 | Mesma frase repetida | O áudio já gerado é reaproveitado, sem nova chamada |
 | Voz atrasada atropelando a fala seguinte | Uma fala nova cancela a voz anterior |
+| App difícil de achar no celular | Botão de instalar na barra e em ⚙; instruções próprias para iPhone |
 | Erro da API ilegível na barra de status | O texto completo aparece no painel, que quebra linha e rola |
 
 ---
@@ -130,11 +131,19 @@ Nos dois casos, o endereço resultante é o link que você manda para o convidad
 Abra o link, toque em **⚙**, cole a chave e toque em **Testar conexão**.
 A chave fica salva só naquele aparelho.
 
-No Android: menu do Chrome → *Adicionar à tela inicial*.
-No iPhone: botão de compartilhar → *Adicionar à Tela de Início*.
-Vira um ícone igual a um app instalado.
+### 4. Instale como aplicativo
 
-### 4. Verifique as vozes
+Quando o navegador oferece instalação, aparece um botão **📲** na barra do
+meio; a mesma opção fica em **⚙ → Instalar no celular**. Instalado, o app
+abre em tela cheia por ícone próprio, sem a barra do navegador — mais espaço
+para o texto e mais fácil de achar no meio da visita. O botão some sozinho
+depois de instalado.
+
+No **iPhone** o Safari não permite que a página faça isso sozinha: é preciso
+usar *Compartilhar → Adicionar à Tela de Início*. A tela de configurações
+mostra essa instrução quando detecta iOS.
+
+### 5. Verifique as vozes
 
 Ainda em **⚙**, confira se aparece *✓ 日本語*. Se não aparecer, o aparelho não
 tem a voz japonesa instalada e a tradução vai só aparecer escrita.
