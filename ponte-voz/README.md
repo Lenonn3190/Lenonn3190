@@ -357,6 +357,53 @@ do aparelho.
 
 ---
 
+## Microfone de lapela sem fio (kit de 2 transmissores)
+
+Os kits baratos de "wireless lavalier microphone" — um receptor que espeta na
+porta do celular e dois transmissores de clipe — resolvem o problema mais
+difícil desta aplicação, que é **captar** numa fábrica. Um microfone a 15 cm
+da boca vale mais que qualquer troca de modelo.
+
+Eles **não** tocam som nenhum: são só microfone. Para ouvir a tradução ainda
+é preciso fone. É a soma dos dois que funciona.
+
+**A combinação boa:** lapela na porta do celular **+** fones Bluetooth para
+ouvir.
+
+O motivo é específico. O aviso da seção anterior — não use o microfone dos
+fones Bluetooth, porque ativá-lo troca o perfil de áudio para mono e a
+separação por lado some — não se aplica aqui: o receptor de lapela é 2,4 GHz
+proprietário na porta do aparelho, não Bluetooth. O Bluetooth fica só na
+saída, em A2DP estéreo. Ou seja, dá para ter **ao mesmo tempo** microfone bom
+e cada tradução no ouvido certo, que antes eram excludentes.
+
+Três coisas a conferir antes:
+
+- **O conector.** Os kits vêm em versão USB-C, Lightning e P2. Precisa ser o
+  da porta do seu aparelho — não existe adaptador confiável entre eles neste
+  tipo de produto.
+- **A porta fica ocupada.** Com o receptor espetado não dá para usar fone com
+  fio nem carregar (sem um hub). Só reforça o uso de fone Bluetooth.
+- **No iPhone**, o Safari ignora a escolha de microfone por `deviceId`: o iOS
+  roteia sozinho para o acessório conectado. Costuma dar certo, mas a lista de
+  **⚙ → Microfone** não vai obedecer. No Android o Chrome lista e obedece
+  normalmente.
+
+**Os dois microfones saem separados ou misturados?** Depende do kit, e muda o
+que dá para fazer. Teste sem o app: grave um vídeo curto falando só no
+transmissor A e depois só no B, e ouça com fone.
+
+- Se cada um sair de um lado, o kit manda um microfone em cada canal.
+- Se os dois saírem no meio, o receptor mistura tudo em mono.
+
+Hoje o app pede `channelCount:1`, então funciona igual nos dois casos — a
+mistura mono não atrapalha nada. Se o seu kit separar os canais, dá para usar
+isso no mãos livres para saber **quem** falou pelo canal, em vez de deduzir
+pelo idioma; é mais confiável e ignora o vazamento da voz do outro. Não foi
+implementado porque depende do kit.
+
+---
+
 ## Chave compartilhada (opcional)
 
 Por padrão cada celular guarda a própria chave. Se preferir que ninguém precise
