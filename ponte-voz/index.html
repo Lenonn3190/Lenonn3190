@@ -812,17 +812,24 @@ async function iniciarEscuta(aoFalar){
   const mudo = ac.createGain();
   mudo.gain.value = 0;               // o nó precisa de destino, mas nada deve tocar
 
-  escuta = { stream, src, proc, mudo, ac, pausado:false,
-             piso:0.01, falando:false, quieto:0, pre:[], buf:[], amostras:0, aoFalar };
+  // A sessão fica numa variável local e o callback guarda essa referência.
+  // O ScriptProcessorNode ainda entrega um ou dois buffers já enfileirados
+  // depois do disconnect(), e antes disto eles caíam num `escuta` já nulo e
+  // estouravam ("Cannot read properties of null"). Comparar com o global
+  // também descarta buffers atrasados de uma escuta anterior.
+  const sessao = { stream, src, proc, mudo, ac, pausado:false,
+                   piso:0.01, falando:false, quieto:0, pre:[], buf:[], amostras:0, aoFalar };
+  escuta = sessao;
 
   proc.onaudioprocess = e => {
+    if(escuta !== sessao) return;
     const dados = e.inputBuffer.getChannelData(0);
     const taxa = e.inputBuffer.sampleRate;
 
     // Enquanto o app fala, nada é ouvido. Sem isto o app transcreve a própria
     // voz sintetizada, traduz, fala de novo — e entra em laço.
-    if(appFalando || escuta.pausado || ocupado){
-      escuta.falando = false; escuta.buf = []; escuta.amostras = 0;
+    if(appFalando || sessao.pausado || ocupado){
+      sessao.falando = false; sessao.buf = []; sessao.amostras = 0;
       return;
     }
 
@@ -833,42 +840,42 @@ async function iniciarEscuta(aoFalar){
 
     // Piso de ruído por média móvel: numa fábrica o fundo muda ao longo do
     // dia, e um limiar fixo erraria nos dois sentidos.
-    if(!escuta.falando) escuta.piso = escuta.piso * 0.95 + rms * 0.05;
-    const limiar = Math.min(0.10, Math.max(0.012, escuta.piso * 3));
+    if(!sessao.falando) sessao.piso = sessao.piso * 0.95 + rms * 0.05;
+    const limiar = Math.min(0.10, Math.max(0.012, sessao.piso * 3));
 
     const copia = new Float32Array(dados);   // o buffer é reaproveitado pelo navegador
 
-    if(!escuta.falando){
-      escuta.pre.push({ copia, taxa });
-      let seg = escuta.pre.reduce((a,c) => a + c.copia.length / c.taxa, 0);
-      while(seg > PRE_REGISTRO && escuta.pre.length > 1){
-        seg -= escuta.pre[0].copia.length / escuta.pre[0].taxa;
-        escuta.pre.shift();
+    if(!sessao.falando){
+      sessao.pre.push({ copia, taxa });
+      let seg = sessao.pre.reduce((a,c) => a + c.copia.length / c.taxa, 0);
+      while(seg > PRE_REGISTRO && sessao.pre.length > 1){
+        seg -= sessao.pre[0].copia.length / sessao.pre[0].taxa;
+        sessao.pre.shift();
       }
       if(rms > limiar){
-        escuta.falando = true; escuta.quieto = 0;
-        escuta.buf = escuta.pre.slice();
-        escuta.amostras = escuta.buf.reduce((a,c) => a + c.copia.length, 0);
-        escuta.pre = [];
-        if(escuta.aoFalar) escuta.aoFalar('falando', rms);
-      }else if(escuta.aoFalar){
-        escuta.aoFalar('ouvindo', rms);
+        sessao.falando = true; sessao.quieto = 0;
+        sessao.buf = sessao.pre.slice();
+        sessao.amostras = sessao.buf.reduce((a,c) => a + c.copia.length, 0);
+        sessao.pre = [];
+        if(sessao.aoFalar) sessao.aoFalar('falando', rms);
+      }else if(sessao.aoFalar){
+        sessao.aoFalar('ouvindo', rms);
       }
       return;
     }
 
-    escuta.buf.push({ copia, taxa });
-    escuta.amostras += copia.length;
-    if(escuta.aoFalar) escuta.aoFalar('falando', rms);
+    sessao.buf.push({ copia, taxa });
+    sessao.amostras += copia.length;
+    if(sessao.aoFalar) sessao.aoFalar('falando', rms);
 
-    const segundos = escuta.amostras / taxa;
-    escuta.quieto = rms < limiar * 0.8 ? escuta.quieto + dur * 1000 : 0;
+    const segundos = sessao.amostras / taxa;
+    sessao.quieto = rms < limiar * 0.8 ? sessao.quieto + dur * 1000 : 0;
 
-    if(escuta.quieto >= SILENCIO_FIM || segundos >= FALA_MAX){
-      const trecho = escuta.buf, total = segundos;
-      escuta.falando = false; escuta.buf = []; escuta.amostras = 0; escuta.quieto = 0;
-      if(total >= FALA_MIN && escuta.aoFalar) escuta.aoFalar('trecho', trecho);
-      else if(escuta.aoFalar) escuta.aoFalar('curto', total);
+    if(sessao.quieto >= SILENCIO_FIM || segundos >= FALA_MAX){
+      const trecho = sessao.buf, total = segundos;
+      sessao.falando = false; sessao.buf = []; sessao.amostras = 0; sessao.quieto = 0;
+      if(total >= FALA_MIN && sessao.aoFalar) sessao.aoFalar('trecho', trecho);
+      else if(sessao.aoFalar) sessao.aoFalar('curto', total);
     }
   };
 
@@ -878,6 +885,7 @@ async function iniciarEscuta(aoFalar){
 
 function pararEscuta(){
   if(!escuta) return;
+  try{ escuta.proc.onaudioprocess = null; }catch(e){}
   try{ escuta.proc.disconnect(); escuta.src.disconnect(); escuta.mudo.disconnect(); }catch(e){}
   escuta.stream.getTracks().forEach(t => t.stop());
   escuta = null;
@@ -1051,7 +1059,18 @@ function prompt(de, para){
     '- Traduza a INTENÇÃO, não palavra por palavra. Deve soar como alguém realmente falaria.',
     '- Números, quantidades, horários, medidas e códigos de peça precisam sair exatos.',
     '- Nunca acrescente informação que não foi dita, nunca responda à fala, nunca comente. Você é só o intérprete.',
-    '- Se o áudio estiver vazio, mudo ou totalmente ininteligível, devolva source_text como texto vazio.'
+    // Medido: com a regra escrita só como "se estiver ininteligível, devolva
+    // vazio", um áudio de tons parecidos com fala saía traduzido como frase
+    // plausível de fábrica em 10 de 10 tentativas -- o modelo completava a
+    // lacuna com o contexto e o glossário. Com as duas linhas abaixo, 3 de 3
+    // vazias, e as quatro condições de fala real (pt, ja, longe com ruído,
+    // perto com linha barulhenta) continuaram transcritas certas em 12 de 12.
+    '- ANTES DE TUDO: só transcreva se você realmente distinguir PALAVRAS no áudio. Se ouvir apenas ruído, ' +
+      'tom, batida, som abafado, voz distante demais ou sons parecidos com fala mas sem palavras ' +
+      'reconhecíveis, devolva source_text e target_text como texto vazio e pare por aí.',
+    '- NUNCA invente, adivinhe nem componha uma frase plausível a partir do contexto, do glossário ou do ' +
+      'histórico. Devolver vazio está sempre certo; devolver uma frase que não foi dita é o pior erro ' +
+      'possível, porque as duas pessoas vão acreditar nela.'
   ];
 
   if(S.romaji){
