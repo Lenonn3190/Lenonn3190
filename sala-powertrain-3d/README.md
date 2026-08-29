@@ -29,9 +29,10 @@ fixa e avança o canal na hora:
    marcados como tal no próprio painel.
 2. **Painel Gerencial de Férias · ETG 103ki** — KPIs do ciclo, distribuição mensal
    de blocos, blocos por área, regra N-40 e fila de apontamento.
-3. **Gestão de Estoque entre Setores** — estoque total e por estado, fluxo
-   FUNDIÇÃO → USINAGEM → MOTOR → LINHA AF e um card por setor com a barra de
-   faixas e a agulha no valor atual.
+3. **Gestão de Estoque | Powertrain** — as cinco famílias (Bloco, Cabeçote,
+   Transmissão, Motor e Cilindro 2W), cada uma com o disponível, meta e mínimo,
+   barra de atingimento, tendência do dia, saldo por local (FND, USI com as
+   operações, MMO), DR rejeitado contra o máximo e a cobertura em dias úteis.
 
 Cada painel é desenhado em `canvas` 2D e enviado como textura; a mesma textura
 alimenta o telão e as quatro TVs de parede, então todas as telas trocam de canal

@@ -269,7 +269,7 @@
       <h3>Sobre esta reconstrução</h3>
       <p>Sala de apresentação dos temas de inovação do powertrain, em primeira pessoa. O módulo em contêiner foi remontado a partir de uma única fotografia tirada do mezanino.</p>
       <ul>
-        <li><b>Telão de 3,3 m</b> no fundo, alternando três canais: andon das células, Painel Gerencial de Férias e Gestão de Estoque entre Setores</li>
+        <li><b>Telão de 3,3 m</b> no fundo, alternando três canais: andon das células, Painel Gerencial de Férias e Gestão de Estoque | Powertrain</li>
         <li><b>4 bancadas</b>, duas de cada lado, cada uma com uma <b>TV de parede</b> repetindo o canal do telão</li>
         <li><b>Vão do mezanino</b> com guarda-corpo tubular e escada para o piso inferior</li>
         <li><b>Faixa de LED</b> em espinha de peixe no teto laqueado, entre as janelas contínuas</li>
@@ -686,133 +686,297 @@ function drawFerias(c){
 }
 
 /* canal 3 — Gestão de Estoque entre Setores, na identidade do original */
+/* canal 3 — Gestão de Estoque | Powertrain (painel de acompanhamento) */
+var EOK="#3ddc84", EWARN="#ffa726", ECRIT="#ff5252", EAZUL="#4a9eff",
+    EROXO="#b388ff", ETEAL="#2dd4a8", EAMB="#ffc233";
 var EST={
-  setores:[{n:"FUNDIÇÃO",p:"Bloco bruto",a:64,min:20,max:90},
-           {n:"USINAGEM",p:"Bloco usinado",a:38,min:25,max:80},
-           {n:"MOTOR",p:"Motor montado",a:22,min:15,max:45},
-           {n:"LINHA AF",p:"Veículo final",a:18,min:10,max:30}]
+  hora:"18:49", data:"Sáb., 29/08/2026", atualiz:"29/08/2026 às 18:49:01",
+  prox:655, arquivo:"estoque.csv",
+  cards:[
+   {n:"Bloco", cor:ETEAL, spark:ETEAL, tit:"#ffffff", st:["Meta atingida","ok"],
+    v:5270, sub:"disponível · estoque 5.327 − 57 DR",
+    meta:"Meta 5.000 · mín 3.000", pct:100, upd:"▲ 63",
+    linhas:[{t:"chip",c:EAZUL,l:"FND",v:"1.922",m:"2.200",cv:EWARN},
+            {t:"chip",c:EROXO,l:"USI",v:"2.913",m:"2.100",cv:EOK},
+            {t:"sub",i:["OP10 192","OP120 284"]},
+            {t:"sub",i:["OP140 626","OP_OFF 1.811"]},
+            {t:"chip",c:ETEAL,l:"MMO",v:"492",m:"700",cv:EWARN},
+            {t:"dr",v:"−57",m:"máx 20",alerta:true},
+            {t:"chip",c:EROXO,l:"Impregna",v:"198",cv:EROXO}],
+    dias:["≈ 4,5 dias","úteis · consumo 511/dia · MMO+USI OP_OFF","warn"]},
+
+   {n:"Cabeçote", cor:ECRIT, spark:EAZUL, tit:ECRIT, borda:true, st:["Local abaixo do mínimo","crit"],
+    v:5049, sub:"disponível · estoque 5.071 − 22 DR",
+    meta:"Meta 5.000 · mín 3.000", pct:100, upd:"▲ 60",
+    linhas:[{t:"chip",c:EAZUL,l:"FND",v:"2.530",m:"3.000",cv:EWARN},
+            {t:"chip",c:EROXO,l:"USI",v:"2.268",m:"1.600",cv:EOK},
+            {t:"sub",i:["OP180 238","OP260 415"]},
+            {t:"sub",i:["OP_OFF 1.615"]},
+            {t:"chip",c:ETEAL,l:"MMO",v:"273",m:"600",cv:ECRIT,alerta:true},
+            {t:"dr",v:"−22",m:"máx 30"}],
+    dias:["≈ 3,7 dias","úteis · consumo 511/dia · MMO+USI OP_OFF","warn"]},
+
+   {n:"Transmissão", cor:EAMB, spark:"#22d3ee", tit:EAMB, borda:true, st:["Abaixo da meta (91%)","warn"],
+    v:5445, sub:"disponível · estoque 5.447 − 2 DR",
+    meta:"Meta 6.000 · mín 4.000", pct:91, upd:"▲ 66",
+    linhas:[{t:"chip",c:EOK,l:"MSC",v:"205",m:"100",cv:EOK},
+            {t:"chip",c:EAMB,l:"TRA",v:"663",m:"600",cv:EOK},
+            {t:"chip",c:"#22d3ee",l:"DLI",v:"4.337",m:"5.000",cv:EWARN},
+            {t:"chip",c:EOK,l:"LMO",v:"242",m:"100",cv:EOK},
+            {t:"dr",v:"−2",m:"máx 20"}],
+    dias:["≈ 11 dias","úteis · consumo 511/dia","ok"]},
+
+   {n:"Motor", cor:EROXO, spark:EROXO, tit:"#ffffff", st:["Meta atingida","ok"],
+    v:1049, sub:"disponível · estoque 1.050 − 1 DR",
+    meta:"Meta 1.000 · mín 600", pct:100, upd:"▲ 12",
+    linhas:[{t:"chip",c:ETEAL,l:"MMO",v:"465",m:"40",cv:EOK},
+            {t:"chip",c:EAMB,l:"TRA",v:"165",m:"120",cv:EOK},
+            {t:"chip",c:EOK,l:"LMO",v:"420",m:"700",cv:EWARN},
+            {t:"dr",v:"−1",m:"máx 20"},
+            {t:"tit",l:"MODELOS"},
+            {t:"chip",c:EAZUL,l:"1.5",v:"786",m:"900",cv:EOK,extra:"· DR 1"},
+            {t:"chip",c:"#f472b6",l:"1.5 Turbo",v:"263",m:"150",cv:EOK}],
+    dias:["≈ 2,1 dias","úteis · consumo 511/dia","warn"]},
+
+   {n:"Cilindro 2W", cor:EAMB, spark:EAMB, tit:"#ffffff", st:["Meta atingida","ok"],
+    v:37267, sub:"disponível · estoque 37.274 − 7 DR",
+    meta:"Meta 15.000 · mín 10.000", pct:100, upd:"▲ 447",
+    linhas:[{t:"chip",c:EAZUL,l:"FND",v:"9.705",m:"9.000",cv:EOK},
+            {t:"chip",c:EROXO,l:"USI",v:"27.569",m:"11.000",cv:EOK},
+            {t:"dr",v:"−7",m:"máx 50"},
+            {t:"chip",c:EROXO,l:"Impregna",v:"768",cv:EROXO},
+            {t:"tit",l:"MODELOS"},
+            {t:"chip",c:EAMB,l:"KPT",v:"9.698",m:"7.000",cv:EOK,extra:"· DR 7"},
+            {t:"chip",c:EOK,l:"K2G",v:"27.186",m:"10.000",cv:EOK},
+            {t:"chip",c:EROXO,l:"KRM",v:"383",m:"300",cv:EOK}]}
+  ]
 };
-var EOK="#00E676", EWARN="#FFC400", ECRIT="#FF1744", EOVER="#2979FF", ETEAL="#2DD4BF";
-function estStatus(s){
-  var faixa=Math.max(1,s.max-s.min);
-  if(s.a<s.min) return ["CRÍTICO",ECRIT];
-  if(s.a>s.max) return ["EXCESSO",EOVER];
-  if(s.a<=s.min+0.25*faixa) return ["ATENÇÃO",EWARN];
-  return ["SAUDÁVEL",EOK];
-}
+function fmtBR(n){ return String(n).replace(/\B(?=(\d{3})+(?!\d))/g,"."); }
+
 function drawEstoque(c){
-  var W=SCR.w,pad=44, EINK="#EAF0FB", EDIM="#8593AB", EFAINT="#54607A", ELINE="#2A3142";
-  var g=c.createRadialGradient(W/2,-80,60,W/2,520,1400);
-  g.addColorStop(0,"#1A2030");g.addColorStop(1,"#0E1016");
-  c.fillStyle=g;c.fillRect(0,0,W,SCR.h);
+  var W=SCR.w, pad=30, INKE="#ffffff", DIM="#8b9bb4", FAINT="#5b6b84",
+      FUND="#0b1018", CARD="#131a27", LINHA="#232c3d";
+  c.fillStyle=FUND;c.fillRect(0,0,W,SCR.h);
   c.textAlign="left";c.textBaseline="alphabetic";
-  c.fillStyle=EINK;c.font='900 42px '+SANS;
-  c.fillText("Gestão de Estoque entre Setores",pad,76);
-  c.fillStyle=EDIM;c.font='400 22px '+SANS;
-  c.fillText("Cada card mostra o estoque atual e seu nível dentro das faixas de meta · Powertrain",pad,110);
-  c.fillStyle=EDIM;c.font='600 21px '+SANS;
-  var wsv=c.measureText("Salvo automaticamente").width;
-  c.textAlign="right";c.fillText("Salvo automaticamente",W-pad,74);c.textAlign="left";
-  dot(c,W-pad-wsv-20,67,8,ETEAL);
 
-  var tot=0,ok=0,wa=0,cr=0,ov=0;
-  EST.setores.forEach(function(s){
-    tot+=s.a;var st=estStatus(s)[0];
-    if(st==="SAUDÁVEL")ok++;else if(st==="ATENÇÃO")wa++;else if(st==="CRÍTICO")cr++;else ov++;
-  });
-  var kw=(W-pad*2-4*12)/5, ky=140, kh=118;
-  [["Estoque total",tot,EINK],["Saudável",ok,EOK],["Atenção",wa,EWARN],
-   ["Crítico",cr,ECRIT],["Excesso",ov,EOVER]].forEach(function(k,i){
-    var x=pad+i*(kw+12);
-    var gk=c.createLinearGradient(0,ky,0,ky+kh);
-    gk.addColorStop(0,"#1A1F2A");gk.addColorStop(1,"#161b24");
-    c.fillStyle=gk;rrect(c,x,ky,kw,kh,15);c.fill();
-    c.strokeStyle=ELINE;c.lineWidth=2;rrect(c,x,ky,kw,kh,15);c.stroke();
-    c.fillStyle=k[2];c.font='800 46px '+SANS;c.fillText(k[1]+"",x+22,ky+62);
-    c.fillStyle=EDIM;c.font='700 18px '+SANS;c.fillText(k[0].toUpperCase(),x+22,ky+96);
-  });
+  /* ---- cabeçalho ---- */
+  var gi=c.createLinearGradient(pad,22,pad+70,92);
+  gi.addColorStop(0,"#38bdf8");gi.addColorStop(1,"#2563eb");
+  c.fillStyle=gi;rrect(c,pad,22,70,70,17);c.fill();
+  c.fillStyle="#0b1018";c.globalAlpha=.30;rrect(c,pad+14,44,42,32,5);c.fill();c.globalAlpha=1;
+  c.strokeStyle="#0b1018";c.lineWidth=3;c.globalAlpha=.45;
+  c.beginPath();c.moveTo(pad+35,44);c.lineTo(pad+35,76);c.stroke();c.globalAlpha=1;
 
-  /* fluxo entre setores */
-  var fy=282, fh=86, fw=(W-pad*2-3*44)/4;
-  EST.setores.forEach(function(s,i){
-    var x=pad+i*(fw+44), st=estStatus(s);
-    c.fillStyle="#1A1F2A";rrect(c,x,fy,fw,fh,11);c.fill();
-    c.strokeStyle=ELINE;c.lineWidth=2;rrect(c,x,fy,fw,fh,11);c.stroke();
-    c.fillStyle=st[1];rrect(c,x,fy,5,fh,3);c.fill();
-    c.fillStyle=EINK;c.font='800 21px '+SANS;c.fillText(s.n,x+20,fy+30);
-    c.fillStyle=st[1];c.font='800 32px '+SANS;c.fillText(s.a+"",x+20,fy+68);
-    var wv=c.measureText(s.a+"").width;
-    c.fillStyle=EFAINT;c.font='700 16px '+SANS;
-    c.fillText("PEÇAS",x+34+wv,fy+68);
-    if(i<3){
-      c.fillStyle=EFAINT;c.font='400 30px '+SANS;c.textAlign="center";
-      c.fillText("→",x+fw+22,fy+56);c.textAlign="left";
+  c.fillStyle=INKE;c.font='800 52px '+SANS;
+  c.fillText("Gestão de Estoque",pad+90,68);
+  var w1=c.measureText("Gestão de Estoque").width;
+  c.fillStyle=EAZUL;c.fillText("|",pad+108+w1,68);
+  c.fillText("Powertrain",pad+134+w1,68);
+  c.fillStyle=DIM;c.font='700 21px '+SANS;
+  c.fillText("Bloco & Cabeçote & Transmissão & Motor & Cilindro 2W — painel de acompanhamento",pad+90,96);
+
+  var bx=W-pad-30;                                   // botões redondos do canto
+  for(var b=0;b<5;b++){
+    c.fillStyle="#1b2435";rrect(c,bx-56*b-52,32,52,52,15);c.fill();
+    c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,bx-56*b-52,32,52,52,15);c.stroke();
+    c.fillStyle=DIM;c.font='400 22px '+SANS;c.textAlign="center";
+    c.fillText(["⚙","⛶","◐","◎","↻"][b],bx-56*b-26,65);
+    c.textAlign="left";
+  }
+  c.textAlign="right";
+  c.fillStyle=INKE;c.font='800 44px '+SANS;c.fillText(EST.hora,bx-300,64);
+  c.fillStyle=DIM;c.font='700 20px '+SANS;c.fillText(EST.data,bx-300,92);
+  c.textAlign="left";
+
+  /* ---- cinco cartões ---- */
+  var cy=118, chh=790, gap=13, cw=(W-pad*2-gap*4)/5;
+  EST.cards.forEach(function(k,idx){
+    var x=pad+idx*(cw+gap);
+    c.fillStyle=CARD;rrect(c,x,cy,cw,chh,16);c.fill();
+    if(k.borda){c.strokeStyle=k.cor;c.lineWidth=3;c.globalAlpha=.85;
+      rrect(c,x,cy,cw,chh,16);c.stroke();c.globalAlpha=1;}
+    else {c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,x,cy,cw,chh,16);c.stroke();}
+    c.fillStyle=k.cor;rrect(c,x,cy+8,7,chh-16,4);c.fill();   // barra lateral
+
+    // ícone e título
+    c.fillStyle=k.cor;c.globalAlpha=.16;rrect(c,x+22,cy+16,52,52,14);c.fill();c.globalAlpha=1;
+    c.strokeStyle=k.cor;c.lineWidth=2;c.globalAlpha=.5;rrect(c,x+22,cy+16,52,52,14);c.stroke();c.globalAlpha=1;
+    c.fillStyle=k.cor;rrect(c,x+34,cy+32,28,20,4);c.fill();
+    c.fillStyle=k.tit;c.font='800 34px '+SANS;
+    var nome=k.n, larg=cw-108, titQuebra=c.measureText(nome).width>larg;
+    if(titQuebra){                                            // "Cilindro 2W" quebra em duas
+      var partes=nome.split(" ");
+      c.fillText(partes[0],x+86,cy+44);
+      c.fillText(partes.slice(1).join(" "),x+86,cy+76);
+    } else c.fillText(nome,x+86,cy+56);
+
+    // selo de estado
+    var topo=cy+(titQuebra?26:0);
+    var sty=topo+90, cores={ok:EOK,warn:EAMB,crit:ECRIT};
+    var cs=cores[k.st[1]];
+    c.font='700 21px '+SANS;
+    var texto=k.st[0], quebra=c.measureText(texto).width>cw-96;
+    var sh=quebra?60:44;
+    if(k.st[1]==="ok"){
+      c.fillStyle=cs;c.globalAlpha=.14;rrect(c,x+22,sty,cw-44,sh,sh/2);c.fill();c.globalAlpha=1;
+      c.strokeStyle=cs;c.lineWidth=2;c.globalAlpha=.55;rrect(c,x+22,sty,cw-44,sh,sh/2);c.stroke();c.globalAlpha=1;
+      dot(c,x+42,sty+sh/2,6,cs);
+      c.fillStyle=cs;c.fillText(texto,x+56,sty+sh/2+8);
+    }else{
+      c.fillStyle=cs;rrect(c,x+22,sty,cw-44,sh,sh/2);c.fill();
+      dot(c,x+42,sty+(quebra?20:sh/2),6,"#ffffff");
+      c.fillStyle="#1a1005";c.font='800 21px '+SANS;
+      if(quebra){
+        var pal=texto.split(" "), l1=[], l2=[];
+        pal.forEach(function(pp){ (c.measureText(l1.concat([pp]).join(" ")).width<cw-96?l1:l2).push(pp); });
+        c.fillText(l1.join(" "),x+56,sty+27);
+        c.fillText(l2.join(" "),x+56,sty+52);
+      } else c.fillText(texto,x+56,sty+sh/2+8);
     }
-  });
 
-  /* cartões de setor com barra de faixas e agulha no valor atual */
-  var py=396, ph=424;
-  c.fillStyle="#171C26";rrect(c,pad,py,W-pad*2,ph,17);c.fill();
-  c.strokeStyle=ELINE;c.lineWidth=2;rrect(c,pad,py,W-pad*2,ph,17);c.stroke();
-  c.fillStyle=ETEAL;c.font='800 20px '+SANS;c.fillText("▣",pad+26,py+40);
-  c.fillStyle=EDIM;c.font='800 20px '+SANS;
-  c.fillText("SETORES — ESTOQUE & NÍVEL",pad+54,py+40);
-  var cw=(W-pad*2-52-3*16)/4, cy=py+64, chh=ph-92;
-  EST.setores.forEach(function(s,i){
-    var x=pad+26+i*(cw+16), st=estStatus(s);
-    var gc=c.createLinearGradient(0,cy,0,cy+chh);
-    gc.addColorStop(0,"#1F2531");gc.addColorStop(1,"#1A1F2A");
-    c.fillStyle=gc;rrect(c,x,cy,cw,chh,17);c.fill();
-    c.strokeStyle=ELINE;c.lineWidth=2;rrect(c,x,cy,cw,chh,17);c.stroke();
-    c.fillStyle=st[1];rrect(c,x,cy+16,6,chh-32,3);c.fill();
-    c.fillStyle=EINK;c.font='900 27px '+SANS;c.fillText(s.n,x+26,cy+46);
-    c.fillStyle=EDIM;c.font='400 20px '+SANS;c.fillText(s.p,x+26,cy+76);
-    // selo de estado, com a palavra escrita
-    c.font='800 17px '+SANS;
-    var bw=c.measureText(st[0]).width+42, bx=x+cw-bw-20;
-    c.fillStyle=st[1];c.globalAlpha=.14;rrect(c,bx,cy+22,bw,32,9);c.fill();c.globalAlpha=1;
-    c.strokeStyle=st[1];c.lineWidth=2;rrect(c,bx,cy+22,bw,32,9);c.stroke();
-    dot(c,bx+16,cy+38,5,st[1]);
-    c.fillStyle=st[1];c.fillText(st[0],bx+28,cy+44);
-    // número em destaque
-    c.fillStyle=(st[0]==="CRÍTICO")?ECRIT:((st[0]==="EXCESSO")?EOVER:EINK);
-    c.font='800 78px '+SANS;c.fillText(s.a+"",x+26,cy+168);
-    var wv=c.measureText(s.a+"").width;
-    c.fillStyle=EDIM;c.font='700 22px '+SANS;c.fillText("peças",x+40+wv,cy+168);
-    // barra de faixas: crítico / atenção / saudável / excesso
-    var bx0=x+26, bw0=cw-52, by0=cy+200, bh0=34, esc=s.max*1.25;
-    c.fillStyle="#0A0D13";rrect(c,bx0,by0,bw0,bh0,10);c.fill();
-    function faixa(v0,v1,col,al){
-      var a=bx0+bw0*(v0/esc), b=bx0+bw0*(v1/esc);
-      c.fillStyle=col;c.globalAlpha=al;c.fillRect(a,by0+2,Math.max(0,b-a),bh0-4);c.globalAlpha=1;
-    }
-    faixa(0,s.min,ECRIT,.20);
-    faixa(s.min,s.min+0.25*(s.max-s.min),EWARN,.18);
-    faixa(s.min+0.25*(s.max-s.min),s.max,EOK,.16);
-    faixa(s.max,esc,EOVER,.18);
-    c.strokeStyle=ELINE;c.lineWidth=2;rrect(c,bx0,by0,bw0,bh0,10);c.stroke();
-    var nx=bx0+bw0*(Math.min(s.a,esc)/esc);
-    c.fillStyle=st[1];c.fillRect(nx-2.5,by0-6,5,bh0+12);
-    // réguas de mínimo e máximo
-    [[s.min,"MÍN",EWARN],[s.max,"MÁX",EOVER]].forEach(function(t){
-      var tx=bx0+bw0*(t[0]/esc);
-      c.fillStyle=t[2];c.fillRect(tx-1,by0+bh0+8,2,10);
-      c.textAlign="center";
-      c.font='700 15px '+SANS;c.fillText(t[1],tx,by0+bh0+38);
-      c.fillStyle=t[2];c.font='700 19px '+SANS;c.fillText(t[0]+"",tx,by0+bh0+60);
-      c.textAlign="left";
+    // número grande
+    var vy=topo+(quebra?218:202);
+    c.fillStyle=INKE;c.font='800 74px '+SANS;
+    var sv=fmtBR(k.v);c.fillText(sv,x+22,vy);
+    var wv=c.measureText(sv).width;
+    c.fillStyle=DIM;c.font='700 24px '+SANS;c.fillText("un",x+30+wv,vy);
+    c.fillStyle=FAINT;c.font='600 17px '+SANS;c.fillText(k.sub,x+22,vy+28);
+
+    // meta, porcentagem e barra
+    var my=vy+62;
+    c.font='800 21px '+SANS;
+    var wpct=c.measureText(k.pct+"%").width;
+    c.font='700 21px '+SANS;
+    if(c.measureText(k.meta).width>cw-66-wpct) c.font='700 18px '+SANS;
+    c.fillStyle="#c9d4e5";c.fillText(k.meta,x+22,my);
+    c.textAlign="right";
+    c.fillStyle=INKE;c.font='800 21px '+SANS;c.fillText(k.pct+"%",x+cw-22,my);
+    c.textAlign="left";
+    var bw=cw-44;
+    c.fillStyle="#1d2637";rrect(c,x+22,my+12,bw,13,7);c.fill();
+    c.fillStyle=k.pct>=100?EOK:EAMB;rrect(c,x+22,my+12,bw*Math.min(1,k.pct/100),13,7);c.fill();
+
+    // mini tendência + contador de updates
+    var ky=my+40, kh=46, kw=cw*0.40;
+    c.beginPath();
+    c.moveTo(x+22,ky+kh);
+    c.lineTo(x+22+kw*.22,ky+kh-kh*.32);
+    c.lineTo(x+22+kw*.58,ky+kh-kh*.52);
+    c.lineTo(x+22+kw,ky+6);
+    c.strokeStyle=k.spark||k.cor;c.lineWidth=3;c.stroke();
+    c.lineTo(x+22+kw,ky+kh);c.lineTo(x+22,ky+kh);c.closePath();
+    c.fillStyle=k.spark||k.cor;c.globalAlpha=.16;c.fill();c.globalAlpha=1;
+    c.fillStyle=DIM;c.font='600 19px '+SANS;
+    c.fillText("5 Updates hoje",x+34+kw,ky+24);
+    c.fillStyle=EOK;c.font='700 19px '+SANS;
+    c.fillText(k.upd,x+34+kw,ky+48);
+
+    // linhas de local / modelo
+    var ly=ky+kh+22;
+    k.linhas.forEach(function(ln){
+      if(ln.t==="sub"){
+        var sx2=x+26;
+        ln.i.forEach(function(it){
+          c.font='600 17px '+SANS;
+          var wt=c.measureText(it).width+34;
+          c.fillStyle="#161e2c";rrect(c,sx2,ly,wt,26,8);c.fill();
+          c.strokeStyle=LINHA;c.lineWidth=1;rrect(c,sx2,ly,wt,26,8);c.stroke();
+          c.fillStyle=FAINT;c.fillText("↳ "+it,sx2+10,ly+19);
+          sx2+=wt+8;
+        });
+        ly+=32;return;
+      }
+      if(ln.t==="tit"){
+        c.fillStyle=FAINT;c.font='800 17px '+SANS;c.fillText(ln.l,x+24,ly+17);
+        ly+=30;return;
+      }
+      if(ln.t==="dr"){
+        c.fillStyle="#1a1620";rrect(c,x+22,ly,cw-44,52,11);c.fill();
+        c.strokeStyle=ECRIT;c.lineWidth=2;c.globalAlpha=.55;
+        rrect(c,x+22,ly,cw-44,52,11);c.stroke();c.globalAlpha=1;
+        dot(c,x+40,ly+26,6,ECRIT);
+        c.fillStyle="#dbe3f0";c.font='700 19px '+SANS;
+        c.fillText("DR",x+54,ly+23);
+        c.fillStyle=DIM;c.font='600 17px '+SANS;c.fillText("(rejeitado)",x+54,ly+44);
+        c.textAlign="right";
+        c.fillStyle=ECRIT;c.font='800 21px '+SANS;
+        c.fillText(ln.v+" / "+ln.m,x+cw-32,ly+34);
+        c.textAlign="left";
+        ly+=60;return;
+      }
+      // chip padrão: ponto + sigla + valor / limite
+      var alto=34;
+      c.fillStyle=ln.alerta?"#1e1418":"#161e2c";rrect(c,x+22,ly,cw-44,alto,10);c.fill();
+      c.strokeStyle=ln.alerta?ECRIT:LINHA;c.lineWidth=ln.alerta?2:1;
+      c.globalAlpha=ln.alerta?.6:1;rrect(c,x+22,ly,cw-44,alto,10);c.stroke();c.globalAlpha=1;
+      dot(c,x+38,ly+alto/2,6,ln.c);
+      c.fillStyle="#dbe3f0";c.font='700 20px '+SANS;
+      c.fillText(ln.l,x+52,ly+alto/2+7);
+      var wl=c.measureText(ln.l).width;
+      c.fillStyle=ln.cv;c.font='800 20px '+SANS;
+      c.fillText(ln.v,x+64+wl,ly+alto/2+7);
+      var wv2=c.measureText(ln.v).width;
+      if(ln.m){
+        c.fillStyle=DIM;c.font='600 19px '+SANS;
+        c.fillText("/ "+ln.m,x+74+wl+wv2,ly+alto/2+7);
+      }
+      if(ln.extra){
+        c.textAlign="right";c.fillStyle=ECRIT;c.font='700 18px '+SANS;
+        c.fillText(ln.extra,x+cw-34,ly+alto/2+7);c.textAlign="left";
+      }
+      ly+=alto+6;
     });
+
+    // cobertura em dias, ancorada no rodapé do cartão
+    if(k.dias){
+      var dcor=k.dias[2]==="ok"?EOK:EWARN, sub=k.dias[1];
+      c.font='600 17px '+SANS;
+      var corte=sub.indexOf("·",22), duas=c.measureText(sub).width>cw-70&&corte>0;
+      var dh=duas?90:72, dy=cy+chh-dh-14;
+      c.fillStyle=k.dias[2]==="ok"?"#10201a":"#211a10";
+      rrect(c,x+22,dy,cw-44,dh,12);c.fill();
+      c.strokeStyle=dcor;c.lineWidth=2;c.globalAlpha=.45;
+      rrect(c,x+22,dy,cw-44,dh,12);c.stroke();c.globalAlpha=1;
+      c.fillStyle=dcor;rrect(c,x+38,dy+16,24,24,5);c.fill();
+      c.fillStyle="#0b1018";c.font='800 13px '+SANS;c.fillText("17",x+43,dy+34);
+      c.fillStyle=dcor;c.font='800 27px '+SANS;c.fillText(k.dias[0],x+72,dy+36);
+      c.fillStyle=DIM;c.font='600 17px '+SANS;
+      if(duas){
+        c.fillText(sub.slice(0,corte).trim(),x+38,dy+58);
+        c.fillText(sub.slice(corte).trim(),x+38,dy+78);
+      } else c.fillText(sub,x+38,dy+58);
+    }
   });
 
-  // legenda das faixas
-  var lx=pad+26;
-  [["Saudável",EOK],["Atenção",EWARN],["Crítico (abaixo do mín.)",ECRIT],["Excesso (acima do máx.)",EOVER]]
-  .forEach(function(l){
-    dot(c,lx+6,872,6,l[1]);
-    c.fillStyle=EDIM;c.font='600 19px '+SANS;c.fillText(l[0],lx+20,879);
-    lx+=c.measureText(l[0]).width+56;
-  });
-  trilha(c,EINK,EDIM,ELINE);
+  /* ---- rodapé ---- */
+  var fy=898;
+  c.fillStyle="#111827";rrect(c,pad,fy,W-pad*2,58,14);c.fill();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,pad,fy,W-pad*2,58,14);c.stroke();
+  dot(c,pad+28,fy+29,7,EOK);
+  c.fillStyle="#c9d4e5";c.font='700 21px '+SANS;
+  c.fillText("Conectado à base",pad+44,fy+37);
+  var fx=pad+312;
+  c.strokeStyle=DIM;c.lineWidth=2;c.beginPath();c.arc(fx,fy+29,10,0,7);c.stroke();
+  c.beginPath();c.moveTo(fx,fy+23);c.lineTo(fx,fy+29);c.lineTo(fx+6,fy+31);c.stroke();
+  c.fillStyle=DIM;c.font='600 20px '+SANS;
+  c.fillText("Última atualização:",fx+22,fy+37);
+  var wu=c.measureText("Última atualização:").width;
+  c.fillStyle="#c9d4e5";c.font='700 20px '+SANS;
+  c.fillText(EST.atualiz,fx+32+wu,fy+37);
+  var px2=fx+32+wu+c.measureText(EST.atualiz).width+40;
+  c.fillStyle=EAMB;
+  c.beginPath();c.moveTo(px2,fy+18);c.lineTo(px2+16,fy+18);c.lineTo(px2+8,fy+29);c.closePath();c.fill();
+  c.beginPath();c.moveTo(px2,fy+40);c.lineTo(px2+16,fy+40);c.lineTo(px2+8,fy+29);c.closePath();c.fill();
+  c.fillStyle=DIM;c.font='600 20px '+SANS;c.fillText("Próxima em:",px2+28,fy+37);
+  var wp=c.measureText("Próxima em:").width;
+  c.fillStyle="#c9d4e5";c.font='700 20px '+SANS;
+  c.fillText(Math.floor(EST.prox/60)+":"+String(EST.prox%60).padStart(2,"0"),px2+38+wp,fy+37);
+  c.textAlign="right";
+  c.fillStyle=DIM;c.font='600 20px '+SANS;c.fillText(EST.arquivo,W-pad-26,fy+37);
+  c.fillStyle=EAZUL;c.fillRect(W-pad-40-c.measureText(EST.arquivo).width-16,fy+18,16,22);
+  c.textAlign="left";
+
+  trilha(c,INKE,DIM,LINHA);
 }
 
 function drawScreen(){
@@ -846,9 +1010,9 @@ function tickScreen(dt){
   ANDON.pecas+=Math.round(Math.random()*9);
   ANDON.oee=Math.max(70,Math.min(88,ANDON.oee+(Math.random()-0.5)*1.6));
   ANDON.disp=Math.max(84,Math.min(97,ANDON.disp+(Math.random()-0.5)*1.2));
-  EST.setores.forEach(function(st){
-    st.a=Math.max(2,Math.min(Math.round(st.max*1.2),
-      st.a+Math.round((Math.random()-0.5)*7)));
+  EST.prox=EST.prox>8?EST.prox-9:655;
+  EST.cards.forEach(function(k){
+    k.v=Math.max(1,k.v+Math.round((Math.random()-0.45)*Math.max(2,k.v*0.0015)));
   });
   drawScreen();
   SCR.dirty=true;
