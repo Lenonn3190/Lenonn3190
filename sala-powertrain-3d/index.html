@@ -270,7 +270,7 @@
       <p>Sala de apresentação dos temas de inovação do powertrain, em primeira pessoa. O módulo em contêiner foi remontado a partir de uma única fotografia tirada do mezanino.</p>
       <ul>
         <li><b>Telão de 3,3 m</b> no fundo, alternando três canais: andon das células, Painel Gerencial de Férias e Gestão de Estoque entre Setores</li>
-        <li><b>10 estações</b> de demonstração em duas fileiras, com equipamento, braço articulado e monitor</li>
+        <li><b>4 bancadas</b>, duas de cada lado, cada uma com uma <b>TV de parede</b> repetindo o canal do telão</li>
         <li><b>Vão do mezanino</b> com guarda-corpo tubular e escada para o piso inferior</li>
         <li><b>Faixa de LED</b> em espinha de peixe no teto laqueado, entre as janelas contínuas</li>
       </ul>
@@ -284,12 +284,12 @@
         <div class="rulebar"></div>
         <div class="eyebrow">Percurso imersivo em primeira pessoa</div>
         <h2>Entre na sala de inovação</h2>
-        <p>Ande pelo corredor central, chegue perto das estações de demonstração e siga até o telão do fundo, que passa os painéis do departamento. O mouse controla o olhar; as teclas <b>W A S D</b> controlam os passos.</p>
+        <p>Ande pelo corredor central, chegue perto das bancadas, olhe as TVs de parede e siga até o telão do fundo, que passa os painéis do departamento. O mouse controla o olhar; as teclas <b>W A S D</b> controlam os passos.</p>
         <button id="enter">Entrar na sala</button>
         <div id="gatespec">
           <div><b>19,0 m</b><span>Comprimento</span></div>
           <div><b>4,4 m</b><span>Largura</span></div>
-          <div><b>10</b><span>Estações</span></div>
+          <div><b>4</b><span>Bancadas</span></div>
           <div><b>3,3 m</b><span>Telão</span></div>
         </div>
       </div>
@@ -1002,7 +1002,7 @@ var RW=2.2, RL=9.5, RH=2.75;                  // meia-largura, meio-comprimento,
 var HOLE={x0:-RW, x1:-0.15, z0:-RL, z1:-6.7};
 var LIGHTS=[], GLOWS=[], BLOCKERS=[];
 var STATIONS=[];
-var ARC={x:-1.44,y:1.02,z:0.48,on:true,t:0,next:2.4,level:0};
+var ARC={x:-1.44,y:1.02,z:0.78,on:true,t:0,next:2.4,level:0};
 
 function addBlocker(x0,x1,z0,z1){BLOCKERS.push([x0,x1,z0,z1]);}
 
@@ -1095,7 +1095,7 @@ function buildRoom(){
   buildStairs();
 
   /* --- bancadas --- */
-  var zs=[-4.6,-2.0,0.9,3.6,6.2];
+  var zs=[-3.4,1.2];                       // duas de cada lado
   zs.forEach(function(z,i){
     station(-1,z,i);
     station(1,z,i);
@@ -1186,8 +1186,25 @@ function station(side,z,idx){
     box({x:X-side*.15,y:.823,z:z-.28,w:.28,h:.035,d:.34,rotY:side*.1,tex:"white",color:0xecebe6,spec:.1});
     box({x:X-side*.15,y:.858,z:z-.3,w:.24,h:.02,d:.3,rotY:side*.24,tex:"white",color:0xd8d5cd,spec:.1});
   }
+  tvParede(side, z+.10);
+
   // bancada bloqueia o caminho
   addBlocker(X-tw/2-.12, X+tw/2+.12, z-td/2-.12, z+td/2+.12);
+}
+
+/* TV de parede sobre a bancada — mostra o mesmo canal do telão do fundo */
+function tvParede(side,zc){
+  var w=1.22, h=0.61, y0=1.34, X=side*(RW-0.085);
+  var z0=zc-w/2, z1=zc+w/2;
+  // moldura e suporte
+  box({x:side*(RW-.045),y:y0-.045,z:zc,w:.07,h:h+.09,d:w+.09,tex:"white",color:0x0e1114,spec:.25});
+  box({x:side*(RW-.03),y:y0+h/2-.06,z:zc,w:.05,h:.12,d:.22,tex:"white",color:0x1a1e22,spec:.3});
+  // superfície da tela (entra no lote auto-iluminado do telão)
+  var pts = side<0 ? [[X,y0,z1],[X,y0,z0],[X,y0+h,z0],[X,y0+h,z1]]
+                   : [[X,y0,z0],[X,y0,z1],[X,y0+h,z1],[X,y0+h,z0]];
+  plane({tex:"screen",uv:1,color:0xffffff,spec:.02,n:[-side,0,0],
+         pts:pts, uvs:[[0,0],[1,0],[1,1],[0,1]]});
+  GLOWS.push({x:X-side*.18,y:y0+h/2,z:zc,s:.55,c:[.55,.66,.85],a:.10});
 }
 
 function farEnd(){
@@ -1395,7 +1412,7 @@ var STOPS=[
   {n:"Mezanino",       k:"01", x:0.85, y:EYE,z:-9.05, yaw:0,      pitch:-0.12},
   {n:"Vão da escada",  k:"02", x:0.60, y:EYE,z:-7.40, yaw:-1.05,  pitch:-0.50},
   {n:"Corredor",       k:"03", x:0,    y:EYE,z:-4.20, yaw:0,      pitch:-0.03},
-  {n:"Estação 06",     k:"04", x:-0.30,y:EYE,z:0.90,  yaw:-1.42,  pitch:-0.13},
+  {n:"Bancadas",       k:"04", x:0.72, y:EYE,z:0.95,  yaw:-1.22,  pitch:-0.06},
   {n:"Telão",          k:"05", x:0,    y:EYE,z:5.40,  yaw:0,      pitch:-0.04}
 ];
 var glide=null, activeStop=0;

@@ -3,7 +3,7 @@
 Reconstrução 3D navegável da sala de apresentação dos temas de inovação do
 powertrain, remontada a partir de uma única fotografia tirada do mezanino. No
 fundo da sala há um telão de projeção de 3,3 m que alterna os painéis do
-departamento.
+departamento, e uma TV de parede sobre cada bancada repetindo o mesmo canal.
 
 `index.html` é autossuficiente: um único arquivo, sem dependências, sem CDN de
 biblioteca 3D e com a fotografia de referência embutida. Basta abrir no navegador
@@ -19,7 +19,7 @@ biblioteca 3D e com a fotografia de referência embutida. Basta abrir no navegad
 | Ir a uma parada | `1` a `5` ou os botões do canto superior direito | botões |
 | Soltar o cursor | `Esc` | — |
 
-## O telão
+## O telão e as TVs
 
 Três canais, que trocam sozinhos a cada 14 segundos — o botão **Telão** no rodapé
 fixa e avança o canal na hora:
@@ -33,9 +33,10 @@ fixa e avança o canal na hora:
    FUNDIÇÃO → USINAGEM → MOTOR → LINHA AF e um card por setor com a barra de
    faixas e a agulha no valor atual.
 
-Cada painel é desenhado em `canvas` 2D e enviado como textura ao telão; os dados
-ficam em objetos no topo do bloco do telão (`ANDON`, `FER`, `EST`), fáceis de
-trocar. Estados sempre trazem a palavra escrita ao lado da cor.
+Cada painel é desenhado em `canvas` 2D e enviado como textura; a mesma textura
+alimenta o telão e as quatro TVs de parede, então todas as telas trocam de canal
+juntas. Os dados ficam em objetos no topo do bloco do telão (`ANDON`, `FER`,
+`EST`), fáceis de trocar. Estados sempre trazem a palavra escrita ao lado da cor.
 
 **Comparar foto** sobrepõe a fotografia original ao render, na mesma posição de
 câmera e no mesmo campo de visão em que ela foi tirada. **Arco de solda** liga o
@@ -53,8 +54,9 @@ aditivo para os halos das luminárias e do arco.
   janela, até 12 luzes pontuais escolhidas por proximidade e névoa exponencial.
   Albedo convertido de sRGB para linear antes da luz e comprimido de volta no fim.
   O telão é auto-iluminado e joga luz na parte de trás da sala.
-- **Colisão** por círculo contra caixas alinhadas: estações, guarda-corpo, móveis
+- **Colisão** por círculo contra caixas alinhadas: bancadas, guarda-corpo, móveis
   e o vão do mezanino, que não pode ser atravessado.
 
-Medidas do módulo: 19,0 × 4,4 m, pé-direito 2,75 m, 10 estações em duas fileiras,
-telão de 3,3 × 1,64 m, altura do olhar 1,62 m.
+Medidas do módulo: 19,0 × 4,4 m, pé-direito 2,75 m, 4 bancadas (duas de cada
+lado), TVs de 1,22 × 0,61 m sobre elas, telão de 3,3 × 1,64 m e altura do olhar
+1,62 m.
