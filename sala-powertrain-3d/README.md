@@ -39,6 +39,21 @@ alimenta o telão e as quatro TVs de parede, então todas as telas trocam de can
 juntas. Os dados ficam em objetos no topo do bloco do telão (`ANDON`, `FER`,
 `EST`), fáceis de trocar. Estados sempre trazem a palavra escrita ao lado da cor.
 
+## A estação de visão computacional
+
+A bancada do meio, do lado direito de quem entra, é uma célula de inspeção: um
+bloco de motor de alumínio de quatro cilindros preso na placa de fixação, uma
+câmera Intelbras presa no braço logo acima, apontada para baixo, com anel de luz
+próprio, mais o CLP na prateleira e a torre de sinalização na quina da bancada.
+
+A **TV logo acima dessa bancada não repete o telão** — ela mostra o frontend do
+sistema: a imagem da câmera com a região de interesse, uma caixa de detecção por
+cilindro com o diâmetro medido, o achado de porosidade quando aparece, e ao lado
+o laudo da peça (aprovado ou reprovado), as características medidas contra a
+tolerância e os indicadores do turno. Uma peça nova entra a cada 3,4 segundos e
+uma em cada seis reprova, para a tela não ficar parada. Os dados vivem no objeto
+`VIS`, no bloco do frontend.
+
 **Comparar foto** sobrepõe a fotografia original ao render, na mesma posição de
 câmera e no mesmo campo de visão em que ela foi tirada. **Arco de solda** liga o
 disparo periódico do arco em uma das estações.

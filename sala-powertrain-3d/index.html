@@ -271,6 +271,7 @@
       <ul>
         <li><b>Telão de 3,3 m</b> no fundo, alternando três canais: andon das células, Painel Gerencial de Férias e Gestão de Estoque | Powertrain</li>
         <li><b>4 bancadas</b>, duas de cada lado, cada uma com uma <b>TV de parede</b> repetindo o canal do telão</li>
+        <li><b>Estação de visão computacional</b>: bloco de alumínio de 4 cilindros sob uma câmera Intelbras com anel de luz — a TV logo acima mostra o frontend do sistema, com a imagem da câmera e o laudo da peça</li>
         <li><b>Vão do mezanino</b> com guarda-corpo tubular e escada para o piso inferior</li>
         <li><b>Faixa de LED</b> em espinha de peixe no teto laqueado, entre as janelas contínuas</li>
       </ul>
@@ -284,7 +285,7 @@
         <div class="rulebar"></div>
         <div class="eyebrow">Percurso imersivo em primeira pessoa</div>
         <h2>Entre na sala de inovação</h2>
-        <p>Ande pelo corredor central, chegue perto das bancadas, olhe as TVs de parede e siga até o telão do fundo, que passa os painéis do departamento. O mouse controla o olhar; as teclas <b>W A S D</b> controlam os passos.</p>
+        <p>Ande pelo corredor central, passe pela estação de visão que inspeciona o bloco de motor, olhe as TVs de parede e siga até o telão do fundo, que passa os painéis do departamento. O mouse controla o olhar; as teclas <b>W A S D</b> controlam os passos.</p>
         <button id="enter">Entrar na sala</button>
         <div id="gatespec">
           <div><b>19,0 m</b><span>Comprimento</span></div>
@@ -979,6 +980,248 @@ function drawEstoque(c){
   trilha(c,INKE,DIM,LINHA);
 }
 
+/* ---------- TV da bancada: frontend do sistema de visão ----------
+   Imagem ao vivo da câmera sobre o bloco + laudo da peça. Verde/vermelho
+   sempre acompanhados da palavra (OK / NOK, APROVADO / REPROVADO). */
+var VIS={w:2048,h:1024,cv:null,ctx:null,tex:null,dirty:true,t:0,scan:0,
+  peca:"BL-4471", ok:true, ciclo:1.84, conf:98.7, turno:312, refugo:1.3,
+  hora:"18:49:12", defeito:false, frames:0,
+  bores:[76.02,76.01,75.99,76.03],
+  checks:[["Ø cilindro 1","76,02 mm","76,00 ±0,04",true],
+          ["Ø cilindro 2","76,01 mm","76,00 ±0,04",true],
+          ["Ø cilindro 3","75,99 mm","76,00 ±0,04",true],
+          ["Ø cilindro 4","76,03 mm","76,00 ±0,04",true],
+          ["Planicidade do deck","0,018 mm","máx 0,030",true],
+          ["Furos M11 (10)","10 de 10","10",true],
+          ["Porosidade","não detectada","máx 0,5 mm",true]]};
+var VCIAN="#22d3ee", VOK="#3ddc84", VNOK="#ff5252", VAMB="#ffc233";
+
+function drawVisao(c){
+  var W=VIS.w,H=VIS.h,pad=34;
+  var FUND="#0b0f14", CARD="#121821", LINHA="#233040",
+      INKV="#eaf2ff", DIM="#8ea0b8", FAINT="#5d6f88";
+  c.fillStyle=FUND;c.fillRect(0,0,W,H);
+  c.textAlign="left";c.textBaseline="alphabetic";
+
+  /* cabeçalho */
+  c.fillStyle=VCIAN;rrect(c,pad,26,8,44,4);c.fill();
+  c.fillStyle=INKV;c.font='800 40px '+SANS;
+  c.fillText("Inspeção de bloco",pad+24,60);
+  var wt=c.measureText("Inspeção de bloco").width;
+  c.fillStyle=DIM;c.font='600 24px '+SANS;
+  c.fillText("· visão computacional",pad+40+wt,60);
+  c.fillStyle=FAINT;c.font='600 20px '+SANS;
+  c.fillText("Bloco 4 cilindros em alumínio · Honda · linha de usinagem",pad+24,90);
+  c.textAlign="right";
+  c.fillStyle=VOK;c.font='700 22px '+SANS;
+  var wco=c.measureText("CÂMERA ONLINE").width;
+  c.fillText("CÂMERA ONLINE",W-pad,58);
+  dot(c,W-pad-wco-18,50,8,VOK);
+  c.fillStyle=DIM;c.font='600 20px '+SANS;
+  c.fillText("Intelbras VIP 3230 B · 1080p · 30 fps",W-pad,88);
+  c.textAlign="left";
+
+  /* ---------- imagem da câmera ---------- */
+  var vx=pad, vy=116, vw=1250, vh=780;
+  c.fillStyle="#05080b";rrect(c,vx,vy,vw,vh,12);c.fill();
+  c.save();rrect(c,vx,vy,vw,vh,12);c.clip();
+
+  // mesa/fixture ao fundo
+  var gm=c.createLinearGradient(0,vy,0,vy+vh);
+  gm.addColorStop(0,"#10161d");gm.addColorStop(1,"#080c11");
+  c.fillStyle=gm;c.fillRect(vx,vy,vw,vh);
+  c.strokeStyle="#1a232e";c.lineWidth=2;
+  for(var i=1;i<8;i++){c.beginPath();c.moveTo(vx,vy+i*vh/8);c.lineTo(vx+vw,vy+i*vh/8);c.stroke();}
+
+  // bloco visto de cima
+  var bx=vx+150, by=vy+230, bw=950, bh=330;
+  var gb=c.createLinearGradient(0,by,0,by+bh);
+  gb.addColorStop(0,"#c3c8cb");gb.addColorStop(.45,"#9ea5aa");gb.addColorStop(1,"#7e868c");
+  c.fillStyle=gb;rrect(c,bx,by,bw,bh,16);c.fill();
+  c.strokeStyle="#6b7378";c.lineWidth=3;rrect(c,bx,by,bw,bh,16);c.stroke();
+  c.globalAlpha=.12;c.strokeStyle="#ffffff";c.lineWidth=1;   // marcas de usinagem
+  for(var m=0;m<60;m++){
+    c.beginPath();c.moveTo(bx+6,by+8+m*(bh-16)/60);c.lineTo(bx+bw-6,by+10+m*(bh-16)/60);c.stroke();
+  }
+  c.globalAlpha=1;
+  // furos M11 nas bordas do deck
+  c.fillStyle="#4c545a";
+  for(var f=0;f<5;f++){
+    var fx2=bx+90+f*192;
+    c.beginPath();c.arc(fx2,by+26,11,0,7);c.fill();
+    c.beginPath();c.arc(fx2,by+bh-26,11,0,7);c.fill();
+  }
+  // quatro cilindros
+  var cyx=[], r=96;
+  for(var b=0;b<4;b++){
+    var cx2=bx+150+b*217, cy2=by+bh/2;
+    cyx.push([cx2,cy2]);
+    var gc=c.createRadialGradient(cx2-20,cy2-20,10,cx2,cy2,r);
+    gc.addColorStop(0,"#3d454b");gc.addColorStop(.72,"#20262b");gc.addColorStop(1,"#0e1215");
+    c.fillStyle=gc;c.beginPath();c.arc(cx2,cy2,r,0,7);c.fill();
+    c.strokeStyle="#cdd3d6";c.lineWidth=4;c.globalAlpha=.75;
+    c.beginPath();c.arc(cx2,cy2,r,0,7);c.stroke();c.globalAlpha=1;
+    c.strokeStyle="#575f66";c.lineWidth=2;
+    c.beginPath();c.arc(cx2,cy2,r-26,0,7);c.stroke();
+  }
+
+  // caixas de detecção, uma por cilindro
+  cyx.forEach(function(pp,b){
+    var ok=!(VIS.defeito&&b===2);
+    var col=ok?VOK:VNOK, dx=pp[0]-r-16, dy=pp[1]-r-16, dw=(r+16)*2;
+    c.strokeStyle=col;c.lineWidth=3;c.strokeRect(dx,dy,dw,dw);
+    [[dx,dy,1,1],[dx+dw,dy,-1,1],[dx,dy+dw,1,-1],[dx+dw,dy+dw,-1,-1]].forEach(function(q){
+      c.beginPath();c.moveTo(q[0],q[1]+q[3]*22);c.lineTo(q[0],q[1]);c.lineTo(q[0]+q[2]*22,q[1]);
+      c.lineWidth=6;c.stroke();
+    });
+    var rot="C"+(b+1)+"  Ø "+VIS.bores[b].toFixed(2).replace(".",",");
+    c.font='700 20px '+SANS;
+    var wl=c.measureText(rot).width+56;
+    c.fillStyle=col;rrect(c,dx,dy-34,wl,30,6);c.fill();
+    c.fillStyle="#07100b";c.fillText(rot,dx+10,dy-12);
+    c.fillStyle="#07100b";c.font='800 20px '+SANS;
+    c.fillText(ok?"OK":"NOK",dx+wl-42,dy-12);
+  });
+
+  // achado de porosidade, quando aparece
+  if(VIS.defeito){
+    var px3=cyx[2][0]+40, py3=by+34;
+    c.strokeStyle=VNOK;c.lineWidth=3;c.strokeRect(px3,py3,120,74);
+    c.font='700 19px '+SANS;
+    var txt="POROSIDADE 0,9 mm";
+    var wl2=c.measureText(txt).width+20;
+    c.fillStyle=VNOK;rrect(c,px3,py3-32,wl2,28,6);c.fill();
+    c.fillStyle="#1a0606";c.fillText(txt,px3+10,py3-12);
+    c.fillStyle=VNOK;c.globalAlpha=.30;c.fillRect(px3,py3,120,74);c.globalAlpha=1;
+  }
+
+  // região de interesse e mira
+  c.strokeStyle=VCIAN;c.lineWidth=2;c.setLineDash([14,10]);
+  c.strokeRect(bx-38,by-58,bw+76,bh+116);c.setLineDash([]);
+  c.fillStyle=VCIAN;c.font='700 19px '+SANS;
+  c.fillText("ROI · deck do bloco",bx-38,by-70);
+
+  // varredura que percorre a imagem
+  var sy=vy+((VIS.scan*97)%vh);
+  var gs=c.createLinearGradient(0,sy-40,0,sy+40);
+  gs.addColorStop(0,"rgba(34,211,238,0)");gs.addColorStop(.5,"rgba(34,211,238,.16)");
+  gs.addColorStop(1,"rgba(34,211,238,0)");
+  c.fillStyle=gs;c.fillRect(vx,sy-40,vw,80);
+
+  // sobreposições da câmera
+  c.fillStyle="rgba(5,8,11,.72)";rrect(c,vx+16,vy+16,330,40,8);c.fill();
+  dot(c,vx+36,vy+36,7,VNOK);
+  c.fillStyle=INKV;c.font='700 20px '+SANS;
+  c.fillText("REC  ·  CAM 01  ·  usinagem",vx+50,vy+43);
+  c.textAlign="right";
+  c.fillStyle="rgba(5,8,11,.72)";rrect(c,vx+vw-306,vy+16,290,40,8);c.fill();
+  c.fillStyle=DIM;c.font='600 19px '+SANS;
+  c.fillText("1920×1080 · exp 8 ms · gain 4 dB",vx+vw-26,vy+43);
+  c.fillText("29/08/2026  "+VIS.hora,vx+vw-26,vy+vh-24);
+  c.textAlign="left";
+  c.fillStyle=DIM;c.font='600 19px '+SANS;
+  c.fillText("peça "+VIS.peca+"  ·  quadro "+VIS.frames,vx+26,vy+vh-24);
+  c.restore();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,vx,vy,vw,vh,12);c.stroke();
+
+  /* ---------- laudo da peça ---------- */
+  var rx=vx+vw+22, rw=W-pad-rx;
+  var cor=VIS.ok?VOK:VNOK;
+  c.fillStyle=CARD;rrect(c,rx,vy,rw,206,14);c.fill();
+  c.strokeStyle=cor;c.lineWidth=3;c.globalAlpha=.8;rrect(c,rx,vy,rw,206,14);c.stroke();c.globalAlpha=1;
+  c.fillStyle=cor;c.globalAlpha=.12;rrect(c,rx,vy,rw,206,14);c.fill();c.globalAlpha=1;
+  c.fillStyle=DIM;c.font='700 21px '+SANS;c.fillText("VEREDITO DA PEÇA",rx+28,vy+42);
+  c.fillStyle=cor;c.font='800 78px '+SANS;
+  c.fillText(VIS.ok?"APROVADO":"REPROVADO",rx+28,vy+120);
+  c.fillStyle=INKV;c.font='700 26px '+SANS;c.fillText(VIS.peca,rx+28,vy+164);
+  c.textAlign="right";
+  c.fillStyle=DIM;c.font='600 22px '+SANS;
+  c.fillText("ciclo "+VIS.ciclo.toFixed(2).replace(".",",")+" s  ·  confiança "+
+             VIS.conf.toFixed(1).replace(".",",")+"%",rx+rw-28,vy+164);
+  c.textAlign="left";
+
+  var ly=vy+232;
+  c.fillStyle=CARD;rrect(c,rx,ly,rw,394,14);c.fill();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,rx,ly,rw,394,14);c.stroke();
+  c.fillStyle=DIM;c.font='700 21px '+SANS;c.fillText("CARACTERÍSTICAS MEDIDAS",rx+28,ly+38);
+  c.fillStyle=FAINT;c.font='600 17px '+SANS;
+  c.textAlign="right";c.fillText("tolerância",rx+rw-124,ly+38);c.textAlign="left";
+  VIS.checks.forEach(function(k,i){
+    var yy=ly+72+i*44;
+    c.fillStyle=INKV;c.font='600 21px '+SANS;c.fillText(k[0],rx+28,yy+16);
+    c.textAlign="right";
+    c.fillStyle="#c9d6e6";c.font='700 20px '+SANS;c.fillText(k[1],rx+rw-256,yy+16);
+    c.fillStyle=FAINT;c.font='600 17px '+SANS;c.fillText(k[2],rx+rw-124,yy+16);
+    c.textAlign="left";
+    var vcor=k[3]?VOK:VNOK;
+    dot(c,rx+rw-92,yy+9,7,vcor);
+    c.fillStyle=vcor;c.font='800 19px '+SANS;c.fillText(k[3]?"OK":"NOK",rx+rw-78,yy+16);
+    if(i<VIS.checks.length-1){c.fillStyle="#1b2531";c.fillRect(rx+28,yy+28,rw-56,1);}
+  });
+
+  var sy2=ly+410, sh=140, sw=(rw-24)/3;
+  [["Peças no turno",VIS.turno+"",""],
+   ["Refugo",VIS.refugo.toFixed(1).replace(".",",")+"%","meta 2,0%"],
+   ["Tempo de ciclo",VIS.ciclo.toFixed(2).replace(".",",")+" s","meta 2,50 s"]
+  ].forEach(function(t,i){
+    var x=rx+i*(sw+12);
+    c.fillStyle=CARD;rrect(c,x,sy2,sw,sh,14);c.fill();
+    c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,x,sy2,sw,sh,14);c.stroke();
+    c.fillStyle=DIM;c.font='600 19px '+SANS;c.fillText(t[0],x+20,sy2+38);
+    c.fillStyle=INKV;c.font='800 46px '+SANS;c.fillText(t[1],x+20,sy2+92);
+    c.fillStyle=FAINT;c.font='600 17px '+SANS;c.fillText(t[2],x+20,sy2+120);
+  });
+
+  /* rodapé */
+  var fy=930;
+  c.fillStyle="#0f151c";rrect(c,pad,fy,W-pad*2,58,12);c.fill();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,pad,fy,W-pad*2,58,12);c.stroke();
+  dot(c,pad+26,fy+29,7,VCIAN);
+  c.fillStyle="#c9d6e6";c.font='700 20px '+SANS;
+  c.fillText("Modelo bloco-4cil v7",pad+42,fy+37);
+  var wm2=c.measureText("Modelo bloco-4cil v7").width;
+  c.fillStyle=DIM;c.font='600 20px '+SANS;
+  c.fillText("·  limiar 0,85  ·  GPU 42%  ·  latência 41 ms",pad+58+wm2,fy+37);
+  c.textAlign="right";
+  c.fillStyle=DIM;c.font='600 20px '+SANS;
+  c.fillText("última peça  "+VIS.hora,W-pad-26,fy+37);
+  c.textAlign="left";
+}
+function texVisao(){
+  VIS.cv=document.createElement("canvas");
+  VIS.cv.width=VIS.w;VIS.cv.height=VIS.h;
+  VIS.ctx=VIS.cv.getContext("2d");
+  drawVisao(VIS.ctx);
+  return VIS.cv;
+}
+/* uma peça nova a cada ~3,4 s; de vez em quando uma reprovada */
+function tickVisao(dt){
+  VIS.t+=dt;VIS.scan+=dt;
+  if(VIS.t<3.4) return;
+  VIS.t=0;
+  VIS.frames+=Math.round(90+Math.random()*20);
+  VIS.defeito=Math.random()<0.18;
+  VIS.ok=!VIS.defeito;
+  VIS.peca=["BL","CB","CR"][0]+"-"+(4400+Math.floor(Math.random()*180));
+  VIS.ciclo=1.6+Math.random()*0.5;
+  VIS.conf=VIS.defeito?(90+Math.random()*5):(97+Math.random()*2.6);
+  VIS.turno+=1;
+  VIS.refugo=Math.max(0.4,Math.min(3.2,VIS.refugo+(Math.random()-0.5)*0.3));
+  VIS.bores=VIS.bores.map(function(){return 75.97+Math.random()*0.09;});
+  VIS.checks.forEach(function(k,i){
+    if(i<4){k[1]=VIS.bores[i].toFixed(2).replace(".",",")+" mm";k[3]=true;}
+  });
+  VIS.checks[4][1]=(0.010+Math.random()*0.016).toFixed(3).replace(".",",")+" mm";
+  VIS.checks[6][1]=VIS.defeito?"0,9 mm no deck":"não detectada";
+  VIS.checks[6][3]=!VIS.defeito;
+  var h=18*3600+49*60+12+VIS.turno*4;
+  VIS.hora=String(Math.floor(h/3600)%24).padStart(2,"0")+":"+
+           String(Math.floor(h/60)%60).padStart(2,"0")+":"+
+           String(h%60).padStart(2,"0");
+  drawVisao(VIS.ctx);
+  VIS.dirty=true;
+}
+
 function drawScreen(){
   var c=SCR.ctx;
   [drawAndon,drawFerias,drawEstoque][SCR.ch](c);
@@ -1140,6 +1383,9 @@ function cyl(o){
 function torus(o){
   var a=G(o.tex||"white");
   var col=typeof o.color==="number"?hex(o.color):(o.color||[1,1,1]);
+  var em=o.emi===undefined?1:o.emi;
+  var emi=o.emissive?hex(o.emissive):BLACK;
+  emi=[emi[0]*em,emi[1]*em,emi[2]*em];
   var su=o.segU||16, sv=o.segV||7, R=o.R, r=o.r, sq=o.squash||.45;
   function P(i,j){
     var u=i/su*Math.PI*2, v=j/sv*Math.PI*2;
@@ -1153,8 +1399,8 @@ function torus(o){
   for(var i=0;i<su;i++)for(var j=0;j<sv;j++){
     var p0=P(i,j),p1=P(i+1,j),p2=P(i+1,j+1),p3=P(i,j+1);
     var n0=N(i,j),n1=N(i+1,j),n2=N(i+1,j+1),n3=N(i,j+1);
-    vert(a,p0,n0,[0,0],col,BLACK,.25);vert(a,p1,n1,[1,0],col,BLACK,.25);vert(a,p2,n2,[1,1],col,BLACK,.25);
-    vert(a,p0,n0,[0,0],col,BLACK,.25);vert(a,p2,n2,[1,1],col,BLACK,.25);vert(a,p3,n3,[0,1],col,BLACK,.25);
+    vert(a,p0,n0,[0,0],col,emi,.25);vert(a,p1,n1,[1,0],col,emi,.25);vert(a,p2,n2,[1,1],col,emi,.25);
+    vert(a,p0,n0,[0,0],col,emi,.25);vert(a,p2,n2,[1,1],col,emi,.25);vert(a,p3,n3,[0,1],col,emi,.25);
   }
 }
 
@@ -1166,7 +1412,7 @@ var RW=2.2, RL=9.5, RH=2.75;                  // meia-largura, meio-comprimento,
 var HOLE={x0:-RW, x1:-0.15, z0:-RL, z1:-6.7};
 var LIGHTS=[], GLOWS=[], BLOCKERS=[];
 var STATIONS=[];
-var ARC={x:-1.44,y:1.02,z:0.78,on:true,t:0,next:2.4,level:0};
+var ARC={x:1.44,y:1.02,z:0.78,on:true,t:0,next:2.4,level:0};
 
 function addBlocker(x0,x1,z0,z1){BLOCKERS.push([x0,x1,z0,z1]);}
 
@@ -1336,6 +1582,9 @@ function station(side,z,idx){
   box({x:px-side*.5,y:1.06,z:z-.42,w:.05,h:.38,d:.05,tex:"white",color:0x15181b,spec:.4});
   box({x:px-side*.5,y:.99,z:z-.42,w:.13,h:.09,d:.13,tex:"white",color:0x2c3237,spec:.5});
 
+  var visao=(side<0&&idx===1);          // a bancada da direita, do meio da sala
+  if(visao){ estacaoVisao(X,z,tw,td,px); tvParede(side,z-.34,"visao"); return; }
+
   // máscara de solda sobre o tampo
   var hm=(idx%3===0)?0x9a2118:0x1a1d21;
   box({x:X-side*.12,y:.825,z:z+.34,w:.27,h:.29,d:.24,rotY:side*.3,tex:"white",color:hm,spec:.5});
@@ -1356,8 +1605,61 @@ function station(side,z,idx){
   addBlocker(X-tw/2-.12, X+tw/2+.12, z-td/2-.12, z+td/2+.12);
 }
 
+/* bancada de inspeção por visão: bloco de alumínio, câmera no alto e o CLP */
+function estacaoVisao(X,z,tw,td,px){
+  var bz=z+.05;
+  // placa de fixação e batentes
+  box({x:X,y:.825,z:bz,w:.44,h:.024,d:.64,tex:"white",color:0x363d43,spec:.5});
+  [[-.17,-.26],[.17,-.26],[-.17,.26],[.17,.26]].forEach(function(o){
+    cyl({x:X+o[0],y:.849,z:bz+o[1],r:.014,h:.05,seg:8,tex:"white",color:0x8d959b,spec:.6});
+  });
+  // bloco quatro cilindros em alumínio
+  box({x:X,y:.849,z:bz,w:.25,h:.25,d:.47,tex:"white",color:0xa8adaf,spec:.55});
+  box({x:X,y:.849,z:bz,w:.29,h:.055,d:.51,tex:"white",color:0xa4a9ab,spec:.5});  // saia
+  box({x:X,y:1.079,z:bz,w:.26,h:.020,d:.48,tex:"white",color:0xbcc1c3,spec:.78}); // deck plano
+  // camisas dos cilindros
+  [-1.5,-0.5,0.5,1.5].forEach(function(k){
+    cyl({x:X,y:1.096,z:bz+k*.093,r:.041,h:.006,seg:16,tex:"white",color:0xd4d9db,spec:.8});
+    cyl({x:X,y:1.099,z:bz+k*.093,r:.036,h:.005,seg:16,tex:"white",color:0x191d21,spec:.15});
+  });
+  // furos de fixação do cabeçote
+  [-1.9,-0.95,0,0.95,1.9].forEach(function(k){
+    [-1,1].forEach(function(sx){
+      cyl({x:X+sx*.105,y:1.099,z:bz+k*.093,r:.011,h:.004,seg:8,tex:"white",color:0x4a5157,spec:.3});
+    });
+  });
+  // galeria de água na lateral
+  box({x:X-.13,y:.90,z:bz,w:.02,h:.10,d:.40,tex:"white",color:0xa8adaf,spec:.5});
+
+  // braço sobre a peça e câmera Intelbras apontada para baixo
+  box({x:(px+X)/2,y:1.58,z:bz,w:Math.abs(px-X),h:.05,d:.05,tex:"white",color:0x15181b,spec:.4});
+  box({x:X,y:1.50,z:bz,w:.07,h:.09,d:.07,tex:"white",color:0x22272c,spec:.5});
+  cyl({x:X,y:1.30,z:bz,r:.052,h:.20,seg:14,tex:"white",color:0x1d2126,spec:.55});
+  cyl({x:X,y:1.27,z:bz,r:.063,h:.05,seg:14,tex:"white",color:0x14181c,spec:.45});   // capô
+  cyl({x:X,y:1.245,z:bz,r:.040,h:.028,seg:14,tex:"white",color:0x0b0e11,spec:.95});  // lente
+  torus({x:X,y:1.258,z:bz,R:.072,r:.011,segU:18,segV:6,squash:.9,tex:"white",
+         color:0xdff0ff,emissive:0xcfe8ff,emi:1.05});                                // anel de luz
+  cyl({x:X+.02,y:1.50,z:bz+.05,r:.008,h:.09,seg:6,tex:"white",color:0x2a2f34});      // cabo
+  LIGHTS.push({x:X,y:1.24,z:bz,r:1.75,c:[.78,.86,1.0],i:1.35});
+  GLOWS.push({x:X,y:1.255,z:bz,s:.3,c:[.7,.83,1],a:.16});
+
+  // CLP e torre de sinalização
+  box({x:X,y:.255,z:z-.34,w:tw-.2,h:.15,d:.24,tex:"white",color:0x191d21,spec:.4});
+  [-.06,0,.06].forEach(function(d,i){
+    box({x:X-tw/2+.12,y:.30,z:z-.34+d,w:.02,h:.02,d:.03,tex:"white",
+         color:i===0?0x3ddc84:0x2b3138,emissive:i===0?0x3ddc84:0,emi:.8});
+  });
+  var sx2=X-.30, sz=z-.50;
+  cyl({x:sx2,y:.825,z:sz,r:.018,h:.20,seg:8,tex:"white",color:0x22272c,spec:.4});
+  [[0x3ddc84,1.0],[0x6b5a20,0],[0x5a2320,0]].forEach(function(cc,i){
+    cyl({x:sx2,y:1.025+i*.055,z:sz,r:.036,h:.05,seg:12,tex:"white",
+         color:cc[0],emissive:cc[1]?cc[0]:0,emi:cc[1]});
+  });
+  GLOWS.push({x:sx2,y:1.05,z:sz,s:.22,c:[.35,.95,.6],a:.14});
+}
+
 /* TV de parede sobre a bancada — mostra o mesmo canal do telão do fundo */
-function tvParede(side,zc){
+function tvParede(side,zc,tex){
   var w=1.22, h=0.61, y0=1.34, X=side*(RW-0.085);
   var z0=zc-w/2, z1=zc+w/2;
   // moldura e suporte
@@ -1366,7 +1668,7 @@ function tvParede(side,zc){
   // superfície da tela (entra no lote auto-iluminado do telão)
   var pts = side<0 ? [[X,y0,z1],[X,y0,z0],[X,y0+h,z0],[X,y0+h,z1]]
                    : [[X,y0,z0],[X,y0,z1],[X,y0+h,z1],[X,y0+h,z0]];
-  plane({tex:"screen",uv:1,color:0xffffff,spec:.02,n:[-side,0,0],
+  plane({tex:tex||"screen",uv:1,color:0xffffff,spec:.02,n:[-side,0,0],
          pts:pts, uvs:[[0,0],[1,0],[1,1],[0,1]]});
   GLOWS.push({x:X-side*.18,y:y0+h/2,z:zc,s:.55,c:[.55,.66,.85],a:.10});
 }
@@ -1515,15 +1817,15 @@ buildRoom();
 
 var TEXES={carpet:makeTex(texCarpet()),panel:makeTex(texPanel()),window:makeTex(texWindow()),
            ceil:makeTex(texCeil()),white:makeTex(texWhite()),wall:makeTex(texWall()),
-           screen:makeTex(texScreen())};
-SCR.tex=TEXES.screen;
+           screen:makeTex(texScreen()), visao:makeTex(texVisao())};
+SCR.tex=TEXES.screen; VIS.tex=TEXES.visao;
 
 /* buffer único, desenhado em faixas por textura */
 var STRIDE=15, batches=[], all=[];
 Object.keys(GROUPS).forEach(function(k){
   var arr=GROUPS[k];
   batches.push({tex:TEXES[k]||TEXES.white, start:all.length/STRIDE, count:arr.length/STRIDE,
-                self:k==="screen"?2.45:0});
+                self:(k==="screen"||k==="visao")?2.45:0});
   for(var i=0;i<arr.length;i++) all.push(arr[i]);
 });
 var vbo=gl.createBuffer();
@@ -1576,7 +1878,7 @@ var STOPS=[
   {n:"Mezanino",       k:"01", x:0.85, y:EYE,z:-9.05, yaw:0,      pitch:-0.12},
   {n:"Vão da escada",  k:"02", x:0.60, y:EYE,z:-7.40, yaw:-1.05,  pitch:-0.50},
   {n:"Corredor",       k:"03", x:0,    y:EYE,z:-4.20, yaw:0,      pitch:-0.03},
-  {n:"Bancadas",       k:"04", x:0.72, y:EYE,z:0.95,  yaw:-1.22,  pitch:-0.06},
+  {n:"Visão · bloco",  k:"04", x:0.92, y:EYE,z:0.30,  yaw:-1.16,  pitch:-0.09},
   {n:"Telão",          k:"05", x:0,    y:EYE,z:5.40,  yaw:0,      pitch:-0.04}
 ];
 var glide=null, activeStop=0;
@@ -1876,12 +2178,18 @@ function nearestLights(){
 var proj,view,last=performance.now(),hudClock=0,FRAMES=0;
 function frame(now){
   var dt=Math.min(.05,(now-last)/1000);last=now;
-  step(dt); updateArc(dt); tickScreen(dt);
+  step(dt); updateArc(dt); tickScreen(dt); tickVisao(dt);
   if(SCR.dirty){                                    // sobe o painel redesenhado
     gl.bindTexture(gl.TEXTURE_2D,SCR.tex);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,SCR.cv);
     gl.generateMipmap(gl.TEXTURE_2D);
     SCR.dirty=false;
+  }
+  if(VIS.dirty){                                    // e a tela do sistema de visão
+    gl.bindTexture(gl.TEXTURE_2D,VIS.tex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,VIS.cv);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    VIS.dirty=false;
   }
 
   var aspect=W/H;
@@ -1963,6 +2271,7 @@ window.__D={cam:cam,batches:batches,tris:TRIS,lights:LIGHTS,glows:GLOWS,stations
             go:function(i){goTo(i);},arcAt:function(d){ARC.next=ARC.t+d;},arc:ARC,
             canal:function(i){SCR.auto=false;setCanal(i);marcaCanal();},
             painel:function(){return SCR.cv.toDataURL();},
+            visao:function(){return VIS.cv.toDataURL();},
             set:function(o){glide=null;for(var k in o)cam[k]=o[k];}};
 
 /* pose de depuração: #pose=x,y,z,yaw,pitch */
