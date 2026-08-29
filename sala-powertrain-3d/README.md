@@ -54,6 +54,24 @@ tolerância e os indicadores do turno. Uma peça nova entra a cada 3,4 segundos 
 uma em cada seis reprova, para a tela não ficar parada. Os dados vivem no objeto
 `VIS`, no bloco do frontend.
 
+## A liberação de acesso por EPI
+
+A bancada da esquerda, perto da entrada, é a segunda célula de visão — de
+segurança. Uma câmera comum, presa na coluna, olha quem chega na porta do forno
+fusor. Sobre a mesa há um portão pequeno com trava eletromagnética, leitor de
+crachá e placa de advertência: **a folha do portão só abre quando todos os EPIs
+são reconhecidos**, e o LED da trava acompanha o veredito.
+
+A TV acima mostra o frontend: a imagem da câmera com o operador diante da boca do
+forno e uma caixa de detecção por EPI (capacete, protetor facial, auricular,
+avental e perneira aluminizados, luvas de raspa, botina), a lista dos EPIs
+exigidos com a confiança de cada um, o estado da trava escrito por extenso e o
+histórico das últimas tentativas. O ciclo roda sozinho — chega alguém, o sistema
+lê, libera ou bloqueia — e cerca de uma tentativa em quatro é barrada.
+
+A folha do portão é a única geometria viva da cena: ela é regerada a cada quadro
+no ângulo atual e enviada num buffer próprio, separado do buffer estático.
+
 **Comparar foto** sobrepõe a fotografia original ao render, na mesma posição de
 câmera e no mesmo campo de visão em que ela foi tirada. **Arco de solda** liga o
 disparo periódico do arco em uma das estações.

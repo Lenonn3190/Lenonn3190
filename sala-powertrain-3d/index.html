@@ -247,7 +247,7 @@
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</div>
         <div><kbd>Shift</kbd> correr</div>
         <div><kbd>Mouse</kbd> olhar</div>
-        <div><kbd>1</kbd>–<kbd>5</kbd> paradas</div>
+        <div><kbd>1</kbd>–<kbd>6</kbd> paradas</div>
         <div><kbd>Esc</kbd> soltar cursor</div>
       </div>
     </div>
@@ -272,6 +272,7 @@
         <li><b>Telão de 3,3 m</b> no fundo, alternando três canais: andon das células, Painel Gerencial de Férias e Gestão de Estoque | Powertrain</li>
         <li><b>4 bancadas</b>, duas de cada lado, cada uma com uma <b>TV de parede</b> repetindo o canal do telão</li>
         <li><b>Estação de visão computacional</b>: bloco de alumínio de 4 cilindros sob uma câmera Intelbras com anel de luz — a TV logo acima mostra o frontend do sistema, com a imagem da câmera e o laudo da peça</li>
+        <li><b>Liberação de acesso por EPI</b>: câmera comum olhando quem chega no portão da fusão; o portãozinho da bancada só destrava quando todos os EPIs são reconhecidos</li>
         <li><b>Vão do mezanino</b> com guarda-corpo tubular e escada para o piso inferior</li>
         <li><b>Faixa de LED</b> em espinha de peixe no teto laqueado, entre as janelas contínuas</li>
       </ul>
@@ -1222,6 +1223,267 @@ function tickVisao(dt){
   VIS.dirty=true;
 }
 
+/* ---------- TV da outra bancada: liberação de acesso por EPI ----------
+   Câmera comum olhando a porta do forno fusor. Só destrava se todos os EPIs
+   estiverem presentes. Verde/vermelho sempre com a palavra escrita. */
+var EPI={w:2048,h:1024,cv:null,ctx:null,tex:null,dirty:true,
+  t:0, fase:"espera", ciclo:0, matricula:"20481", nome:"Operador · fusão",
+  hora:"18:49:20", conf:97.4, faltando:null, passo:-1, liberacoes:41, bloqueios:6,
+  itens:[["Capacete com jugular",0.99],["Protetor facial",0.98],
+         ["Óculos de segurança",0.96],["Protetor auricular",0.95],
+         ["Avental aluminizado",0.99],["Luvas de raspa",0.97],
+         ["Perneira aluminizada",0.96],["Botina de segurança",0.98]],
+  log:[["18:47:02","20481","liberado"],["18:44:51","20477","bloqueado"],
+       ["18:41:36","20463","liberado"],["18:38:20","20481","liberado"]]};
+var EFOGO="#ff7a18";
+
+function faseCor(){
+  return EPI.fase==="liberado"?VOK:(EPI.fase==="bloqueado"?VNOK:VAMB);
+}
+function drawEpi(c){
+  var W=EPI.w,H=EPI.h,pad=34;
+  var FUND="#0b0f14", CARD="#121821", LINHA="#233040",
+      INKV="#eaf2ff", DIM="#8ea0b8", FAINT="#5d6f88";
+  c.fillStyle=FUND;c.fillRect(0,0,W,H);
+  c.textAlign="left";c.textBaseline="alphabetic";
+
+  /* cabeçalho */
+  c.fillStyle=EFOGO;rrect(c,pad,26,8,44,4);c.fill();
+  c.fillStyle=INKV;c.font='800 40px '+SANS;
+  c.fillText("Liberação de acesso",pad+24,60);
+  var wt=c.measureText("Liberação de acesso").width;
+  c.fillStyle=DIM;c.font='600 24px '+SANS;
+  c.fillText("· visão de segurança",pad+40+wt,60);
+  c.fillStyle=FAINT;c.font='600 20px '+SANS;
+  c.fillText("Forno fusor · porta 3 · verificação de EPI antes da entrada",pad+24,90);
+  c.textAlign="right";
+  c.fillStyle=VOK;c.font='700 22px '+SANS;
+  var wco=c.measureText("CÂMERA ONLINE").width;
+  c.fillText("CÂMERA ONLINE",W-pad,58);
+  dot(c,W-pad-wco-18,50,8,VOK);
+  c.fillStyle=DIM;c.font='600 20px '+SANS;
+  c.fillText("Intelbras VIP 1230 B · 1080p · porta 3",W-pad,88);
+  c.textAlign="left";
+
+  /* ---------- imagem da câmera ---------- */
+  var vx=pad, vy=116, vw=1160, vh=780;
+  c.fillStyle="#05080b";rrect(c,vx,vy,vw,vh,12);c.fill();
+  c.save();rrect(c,vx,vy,vw,vh,12);c.clip();
+  var gm=c.createLinearGradient(0,vy,0,vy+vh);
+  gm.addColorStop(0,"#131a20");gm.addColorStop(1,"#080c10");
+  c.fillStyle=gm;c.fillRect(vx,vy,vw,vh);
+
+  // boca do forno ao fundo, com o calor batendo na cena
+  var fx=vx+vw*0.63, fy2=vy+196, fw=300, fh=392;
+  c.fillStyle="#1b1f24";c.fillRect(fx-24,fy2-24,fw+48,fh+48);
+  var gf=c.createLinearGradient(0,fy2,0,fy2+fh);
+  gf.addColorStop(0,"#ffd27a");gf.addColorStop(.45,"#ff8a1f");gf.addColorStop(1,"#c03a06");
+  c.fillStyle=gf;c.fillRect(fx,fy2,fw,fh);
+  var gh=c.createRadialGradient(fx+fw/2,fy2+fh*.55,20,fx+fw/2,fy2+fh*.55,540);
+  gh.addColorStop(0,"rgba(255,140,30,.30)");gh.addColorStop(1,"rgba(255,140,30,0)");
+  c.fillStyle=gh;c.fillRect(vx,vy,vw,vh);
+  c.fillStyle="#0d1116";c.fillRect(fx,fy2+fh,fw,26);
+  c.fillStyle=FAINT;c.font='600 19px '+SANS;
+  c.fillText("FORNO FUSOR · 720 °C",fx,fy2-40);
+
+  /* operador de frente para a porta */
+  var ox=vx+336, oy=vy+150;
+  c.fillStyle="#9aa6b4";                                   // avental aluminizado
+  rrect(c,ox-92,oy+120,184,250,26);c.fill();
+  c.fillStyle="#7c8896";rrect(c,ox-92,oy+120,184,38,19);c.fill();
+  c.fillStyle="#8d99a7";                                   // braços
+  rrect(c,ox-138,oy+140,44,206,20);c.fill();
+  rrect(c,ox+94,oy+140,44,206,20);c.fill();
+  c.fillStyle="#6f7a88";                                   // perneiras
+  rrect(c,ox-76,oy+368,64,178,16);c.fill();
+  rrect(c,ox+12,oy+368,64,178,16);c.fill();
+  c.fillStyle="#2b3138";                                   // botinas
+  rrect(c,ox-82,oy+538,72,44,12);c.fill();
+  rrect(c,ox+10,oy+538,72,44,12);c.fill();
+  c.fillStyle="#c8ccd2";                                   // luvas
+  c.beginPath();c.arc(ox-115,oy+358,27,0,7);c.fill();
+  c.beginPath();c.arc(ox+115,oy+358,27,0,7);c.fill();
+  c.fillStyle="#b9c0c8";                                   // cabeça
+  c.beginPath();c.arc(ox,oy+58,50,0,7);c.fill();
+  c.fillStyle="#39424c";                                   // protetor auricular
+  c.beginPath();c.arc(ox-54,oy+62,14,0,7);c.fill();
+  c.beginPath();c.arc(ox+54,oy+62,14,0,7);c.fill();
+  c.fillStyle="rgba(150,200,225,.5)";                      // protetor facial
+  rrect(c,ox-50,oy+46,100,64,15);c.fill();
+  c.strokeStyle="#8fa3b5";c.lineWidth=3;rrect(c,ox-50,oy+46,100,64,15);c.stroke();
+  c.fillStyle="#ffb703";                                   // capacete
+  c.beginPath();c.arc(ox,oy+40,58,Math.PI,0);c.fill();
+  c.fillRect(ox-68,oy+34,136,12);
+
+  /* caixas de detecção — rótulo de cada uma para um lado, sem empilhar */
+  var caixas=[
+    ["Capacete",      ox-66,oy-20,132,66, 0,"cima"],
+    ["Protetor facial",ox-54,oy+42,108,72, 1,"esq"],
+    ["Protetor auricular",ox+36,oy+44,38,38, 3,"dir"],
+    ["Avental aluminizado",ox-98,oy+114,196,262, 4,"dir"],
+    ["Luvas de raspa", ox-148,oy+326,296,66, 5,"dir"],
+    ["Perneira",      ox-86,oy+358,172,190, 6,"dir"],
+    ["Botina",        ox-90,oy+530,188,60, 7,"esq"]];
+  var analisando=EPI.fase==="analisando";
+  caixas.forEach(function(q,ordem){
+    var i=q[5];
+    if(analisando&&ordem>Math.floor(EPI.t*6)) return;
+    var falta=(EPI.faltando===i), col=falta?VNOK:VOK;
+    c.strokeStyle=col;c.lineWidth=falta?4:2;
+    c.setLineDash(analisando?[8,6]:[]);
+    c.strokeRect(q[1],q[2],q[3],q[4]);c.setLineDash([]);
+    var lab=q[0]+(falta?"  AUSENTE":"  "+Math.round(EPI.itens[i][1]*100)+"%");
+    c.font='700 17px '+SANS;
+    var wl=c.measureText(lab).width+16, lx, lyy;
+    if(q[6]==="cima"){ lx=q[1]; lyy=q[2]-28; }
+    else if(q[6]==="esq"){ lx=q[1]-wl-10; lyy=q[2]+q[4]/2-13; }
+    else { lx=q[1]+q[3]+10; lyy=q[2]+q[4]/2-13; }
+    c.fillStyle=col;rrect(c,lx,lyy,wl,26,5);c.fill();
+    c.fillStyle="#07100b";c.fillText(lab,lx+8,lyy+18);
+    if(q[6]!=="cima"){                                   // fio ligando rótulo e caixa
+      c.strokeStyle=col;c.lineWidth=2;
+      c.beginPath();
+      var mx2=(q[6]==="esq")?q[1]:q[1]+q[3];
+      c.moveTo(q[6]==="esq"?lx+wl:lx,lyy+13);c.lineTo(mx2,lyy+13);c.stroke();
+    }
+  });
+
+  // sobreposições da câmera
+  c.fillStyle="rgba(5,8,11,.72)";rrect(c,vx+16,vy+16,318,40,8);c.fill();
+  dot(c,vx+36,vy+36,7,VNOK);
+  c.fillStyle=INKV;c.font='700 20px '+SANS;
+  c.fillText("REC · CAM 07 · fusão porta 3",vx+50,vy+43);
+  c.textAlign="right";
+  c.fillStyle=DIM;c.font='600 19px '+SANS;
+  c.fillText("29/08/2026  "+EPI.hora,vx+vw-26,vy+vh-24);
+  c.textAlign="left";
+  c.fillStyle=DIM;c.font='600 19px '+SANS;
+  c.fillText("matrícula "+EPI.matricula+"  ·  "+EPI.nome,vx+26,vy+vh-24);
+  c.restore();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,vx,vy,vw,vh,12);c.stroke();
+
+  /* ---------- veredito e trava ---------- */
+  var rx=vx+vw+22, rw=W-pad-rx, cor=faseCor();
+  var txt=EPI.fase==="liberado"?"ACESSO LIBERADO":
+          (EPI.fase==="bloqueado"?"ACESSO BLOQUEADO":"ANALISANDO EPI");
+  c.fillStyle=CARD;rrect(c,rx,vy,rw,210,14);c.fill();
+  c.fillStyle=cor;c.globalAlpha=.13;rrect(c,rx,vy,rw,210,14);c.fill();c.globalAlpha=1;
+  c.strokeStyle=cor;c.lineWidth=3;c.globalAlpha=.85;rrect(c,rx,vy,rw,210,14);c.stroke();c.globalAlpha=1;
+  c.fillStyle=DIM;c.font='700 21px '+SANS;c.fillText("PORTÃO DA FUSÃO",rx+28,vy+42);
+  c.fillStyle=cor;c.font='800 58px '+SANS;c.fillText(txt,rx+28,vy+108);
+  // estado da trava, escrito
+  var trava=EPI.fase==="liberado";
+  c.fillStyle=trava?VOK:VNOK;c.globalAlpha=.18;
+  rrect(c,rx+28,vy+132,300,50,10);c.fill();c.globalAlpha=1;
+  c.strokeStyle=trava?VOK:VNOK;c.lineWidth=2;rrect(c,rx+28,vy+132,300,50,10);c.stroke();
+  c.fillStyle=trava?VOK:VNOK;
+  rrect(c,rx+48,vy+147,18,20,3);c.fill();                    // corpo do cadeado
+  c.strokeStyle=trava?VOK:VNOK;c.lineWidth=4;
+  c.beginPath();
+  if(trava) c.arc(rx+67,vy+147,9,Math.PI,Math.PI*2);
+  else c.arc(rx+57,vy+147,9,Math.PI,Math.PI*2);
+  c.stroke();
+  c.fillStyle=trava?VOK:VNOK;c.font='800 22px '+SANS;
+  c.fillText(trava?"TRAVA DESTRAVADA":"TRAVA ACIONADA",rx+86,vy+166);
+  c.textAlign="right";
+  c.fillStyle=DIM;c.font='600 21px '+SANS;
+  c.fillText("confiança "+EPI.conf.toFixed(1).replace(".",",")+"%",rx+rw-28,vy+166);
+  c.textAlign="left";
+
+  /* lista de EPIs */
+  var ly=vy+236;
+  c.fillStyle=CARD;rrect(c,rx,ly,rw,406,14);c.fill();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,rx,ly,rw,406,14);c.stroke();
+  c.fillStyle=DIM;c.font='700 21px '+SANS;c.fillText("EPIS EXIGIDOS NA FUSÃO",rx+28,ly+38);
+  EPI.itens.forEach(function(it,i){
+    var yy=ly+68+i*42, falta=(EPI.faltando===i), lendo=(EPI.fase==="analisando"&&i>Math.floor(EPI.t*7));
+    c.fillStyle=INKV;c.font='600 20px '+SANS;c.fillText(it[0],rx+28,yy+16);
+    c.textAlign="right";
+    if(lendo){
+      c.fillStyle=FAINT;c.font='600 18px '+SANS;c.fillText("lendo…",rx+rw-28,yy+16);
+    }else{
+      c.fillStyle=FAINT;c.font='600 18px '+SANS;
+      c.fillText(falta?"":Math.round(it[1]*100)+"%",rx+rw-126,yy+16);
+      c.textAlign="left";
+      var vcor=falta?VNOK:VOK;
+      dot(c,rx+rw-112,yy+9,7,vcor);
+      c.fillStyle=vcor;c.font='800 18px '+SANS;
+      c.fillText(falta?"AUSENTE":"OK",rx+rw-98,yy+16);
+    }
+    c.textAlign="left";
+    if(i<EPI.itens.length-1){c.fillStyle="#1b2531";c.fillRect(rx+28,yy+28,rw-56,1);}
+  });
+
+  /* histórico e contadores */
+  var hy=ly+422, hh=124;
+  c.fillStyle=CARD;rrect(c,rx,hy,rw,hh,14);c.fill();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,rx,hy,rw,hh,14);c.stroke();
+  c.fillStyle=DIM;c.font='700 19px '+SANS;c.fillText("ÚLTIMAS TENTATIVAS",rx+24,hy+30);
+  EPI.log.slice(0,3).forEach(function(l,i){
+    var yy=hy+56+i*22;
+    c.fillStyle=FAINT;c.font='600 17px '+SANS;c.fillText(l[0],rx+24,yy);
+    c.fillStyle="#c9d6e6";c.fillText("matr. "+l[1],rx+118,yy);
+    c.fillStyle=l[2]==="liberado"?VOK:VNOK;c.font='700 17px '+SANS;
+    c.textAlign="right";c.fillText(l[2].toUpperCase(),rx+rw-24,yy);c.textAlign="left";
+  });
+
+  /* rodapé */
+  var fy3=930;
+  c.fillStyle="#0f151c";rrect(c,pad,fy3,W-pad*2,58,12);c.fill();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,pad,fy3,W-pad*2,58,12);c.stroke();
+  dot(c,pad+26,fy3+29,7,EFOGO);
+  c.fillStyle="#c9d6e6";c.font='700 20px '+SANS;
+  c.fillText("Modelo epi-fusao v3",pad+42,fy3+37);
+  var wm=c.measureText("Modelo epi-fusao v3").width;
+  c.fillStyle=DIM;c.font='600 20px '+SANS;
+  c.fillText("·  limiar 0,90  ·  trava eletromagnética 12 V  ·  libera por 8 s",pad+58+wm,fy3+37);
+  c.textAlign="right";
+  c.fillText("hoje  "+EPI.liberacoes+" liberações  ·  "+EPI.bloqueios+" bloqueios",W-pad-26,fy3+37);
+  c.textAlign="left";
+}
+function texEpi(){
+  EPI.cv=document.createElement("canvas");
+  EPI.cv.width=EPI.w;EPI.cv.height=EPI.h;
+  EPI.ctx=EPI.cv.getContext("2d");
+  drawEpi(EPI.ctx);
+  return EPI.cv;
+}
+/* ciclo: chega alguém, o sistema lê os EPIs, libera ou bloqueia */
+function tickEpi(dt){
+  EPI.t+=dt;
+  var dur={espera:2.0,analisando:1.5,liberado:5.0,bloqueado:4.0}[EPI.fase];
+  if(EPI.t<dur){
+    if(EPI.fase==="analisando"){                  // um redesenho por EPI lido
+      var passo=Math.floor(EPI.t*6);
+      if(passo!==EPI.passo){ EPI.passo=passo; drawEpi(EPI.ctx); EPI.dirty=true; }
+    }
+    return;
+  }
+  EPI.t=0;
+  if(EPI.fase==="espera"){
+    EPI.fase="analisando"; EPI.passo=-1;
+    EPI.matricula=String(20460+Math.floor(Math.random()*40));
+    EPI.faltando=null;
+  }else if(EPI.fase==="analisando"){
+    var falha=Math.random()<0.28;
+    EPI.faltando=falha?[0,1,3,5,6][Math.floor(Math.random()*5)]:null;
+    EPI.fase=falha?"bloqueado":"liberado";
+    EPI.conf=falha?(91+Math.random()*4):(96+Math.random()*3.4);
+    if(falha) EPI.bloqueios++; else EPI.liberacoes++;
+    var h=18*3600+49*60+20+(EPI.liberacoes+EPI.bloqueios)*37;
+    EPI.hora=String(Math.floor(h/3600)%24).padStart(2,"0")+":"+
+             String(Math.floor(h/60)%60).padStart(2,"0")+":"+
+             String(h%60).padStart(2,"0");
+    EPI.log.unshift([EPI.hora,EPI.matricula,falha?"bloqueado":"liberado"]);
+    EPI.log.pop();
+  }else{
+    EPI.fase="espera";EPI.faltando=null;
+  }
+  GATE.alvo=(EPI.fase==="liberado")?-1.15:0;     // o portão obedece ao veredito
+  drawEpi(EPI.ctx);
+  EPI.dirty=true;
+}
+
 function drawScreen(){
   var c=SCR.ctx;
   [drawAndon,drawFerias,drawEstoque][SCR.ch](c);
@@ -1413,6 +1675,8 @@ var HOLE={x0:-RW, x1:-0.15, z0:-RL, z1:-6.7};
 var LIGHTS=[], GLOWS=[], BLOCKERS=[];
 var STATIONS=[];
 var ARC={x:1.44,y:1.02,z:0.78,on:true,t:0,next:2.4,level:0};
+/* portão da fusão: a folha gira conforme o veredito do sistema de EPI */
+var GATE={ang:0, alvo:0, x:0, y:0, hz:0, buf:null, n:0, feito:-9};
 
 function addBlocker(x0,x1,z0,z1){BLOCKERS.push([x0,x1,z0,z1]);}
 
@@ -1584,6 +1848,8 @@ function station(side,z,idx){
 
   var visao=(side<0&&idx===1);          // a bancada da direita, do meio da sala
   if(visao){ estacaoVisao(X,z,tw,td,px); tvParede(side,z-.34,"visao"); return; }
+  var epi=(side>0&&idx===0);            // a bancada da esquerda, perto da entrada
+  if(epi){ estacaoEpi(X,z,tw,px); tvParede(side,z-.30,"epi"); return; }
 
   // máscara de solda sobre o tampo
   var hm=(idx%3===0)?0x9a2118:0x1a1d21;
@@ -1656,6 +1922,71 @@ function estacaoVisao(X,z,tw,td,px){
          color:cc[0],emissive:cc[1]?cc[0]:0,emi:cc[1]});
   });
   GLOWS.push({x:sx2,y:1.05,z:sz,s:.22,c:[.35,.95,.6],a:.14});
+}
+
+/* bancada de liberação de acesso: portão com trava, leitor e câmera comum */
+function estacaoEpi(X,z,tw,px){
+  var y0=.825, hz=z-.24, lz=z+.24;
+  // trilho de base e batente
+  box({x:X,y:y0,z:z,w:.13,h:.022,d:.60,tex:"white",color:0x2b3138,spec:.45});
+  box({x:X,y:y0,z:z,w:.34,h:.012,d:.66,tex:"white",color:0x22272c,spec:.3});
+  // coluna da dobradiça e coluna da trava
+  cyl({x:X,y:y0+.02,z:hz,r:.023,h:.34,seg:10,tex:"white",color:0x1b1f23,spec:.5});
+  cyl({x:X,y:y0+.02,z:lz,r:.023,h:.34,seg:10,tex:"white",color:0x1b1f23,spec:.5});
+  cyl({x:X,y:y0+.35,z:hz,r:.028,h:.02,seg:10,tex:"white",color:0x333a41,spec:.6});
+  cyl({x:X,y:y0+.35,z:lz,r:.028,h:.02,seg:10,tex:"white",color:0x333a41,spec:.6});
+  // trava eletromagnética no alto da coluna
+  box({x:X,y:y0+.27,z:lz-.035,w:.06,h:.08,d:.07,tex:"white",color:0x14181c,spec:.55});
+  box({x:X-.035,y:y0+.29,z:lz-.035,w:.012,h:.04,d:.05,tex:"white",color:0x8d959b,spec:.7});
+  // leitor de crachá na bancada
+  box({x:X+.16,y:y0,z:z-.44,w:.09,h:.13,d:.06,rotY:-.4,tex:"white",color:0x1d2126,spec:.5});
+  box({x:X+.145,y:y0+.03,z:z-.455,w:.012,h:.07,d:.04,rotY:-.4,tex:"white",
+       color:0x2f6ea8,emissive:0x2f8fd8,emi:.7});
+  // placa de advertência da área
+  box({x:X+.3,y:y0,z:z+.42,w:.02,h:.30,d:.02,tex:"white",color:0x2b3138,spec:.4});
+  box({x:X+.3,y:y0+.30,z:z+.42,w:.015,h:.16,d:.22,tex:"white",color:0xd8a318,spec:.35});
+
+  // câmera comum apontada para quem chega no portão
+  box({x:X+.06,y:1.44,z:z-.02,w:.05,h:.10,d:.05,tex:"white",color:0x22272c,spec:.5});
+  cyl({x:X-.02,y:1.46,z:z-.02,r:.042,h:.20,seg:12,axis:"x",tex:"white",color:0x1d2126,spec:.55});
+  cyl({x:X-.20,y:1.46,z:z-.02,r:.050,h:.04,seg:12,axis:"x",tex:"white",color:0x14181c,spec:.45});
+  cyl({x:X-.245,y:1.46,z:z-.02,r:.030,h:.02,seg:12,axis:"x",tex:"white",color:0x0b0e11,spec:.95});
+  torus({x:X-.235,y:1.46,z:z-.02,R:.042,r:.007,segU:14,segV:5,squash:.9,tex:"white",
+         color:0x6b1414,emissive:0x8f1a1a,emi:.55});
+  GLOWS.push({x:X-.26,y:1.46,z:z-.02,s:.14,c:[1,.35,.3],a:.12});
+
+  GATE.x=X; GATE.y=y0+.02; GATE.hz=hz;      // a folha é desenhada quadro a quadro
+  addBlocker(X-tw/2-.12, X+tw/2+.12, z-.70, z+.70);
+}
+
+/* folha do portão + LED da trava, gerados a cada quadro no ângulo atual */
+function genGate(){
+  var salva=GROUPS; GROUPS={};
+  var a=GATE.ang, L=.46, sn=Math.sin(a), cs=Math.cos(a), X=GATE.x, y=GATE.y, hz=GATE.hz;
+  function peca(d,len,alt,yy,cor){
+    box({x:X+sn*(d+len/2), y:yy, z:hz+cs*(d+len/2),
+         w:.022, h:alt, d:len, rotY:a, tex:"white", color:cor, spec:.5});
+  }
+  peca(0,L,.026,y+.30,0x232930);            // travessa de cima
+  peca(0,L,.026,y+.06,0x232930);            // travessa de baixo
+  [.04,.155,.27,.385,.44].forEach(function(d){ peca(d,.02,.24,y+.07,0x2b323a); });
+  // LED da trava: verde quando o acesso está liberado
+  var liberado=(EPI.fase==="liberado");
+  var cor=liberado?0x3ddc84:(EPI.fase==="bloqueado"?0xff5252:0xffc233);
+  box({x:X-.032,y:y+.345,z:hz+.445,w:.028,h:.026,d:.028,tex:"white",
+       color:cor,emissive:cor,emi:1.25});
+  var arr=GROUPS["white"]||[];
+  GROUPS=salva;
+  return new Float32Array(arr);
+}
+function tickGate(dt){
+  GATE.ang+=(GATE.alvo-GATE.ang)*Math.min(1,dt*3.2);
+  if(Math.abs(GATE.ang-GATE.feito)<0.0015) return;
+  GATE.feito=GATE.ang;
+  var v=genGate();
+  gl.bindBuffer(gl.ARRAY_BUFFER,GATE.buf);
+  gl.bufferData(gl.ARRAY_BUFFER,v,gl.DYNAMIC_DRAW);
+  GATE.n=v.length/STRIDE;
 }
 
 /* TV de parede sobre a bancada — mostra o mesmo canal do telão do fundo */
@@ -1817,15 +2148,17 @@ buildRoom();
 
 var TEXES={carpet:makeTex(texCarpet()),panel:makeTex(texPanel()),window:makeTex(texWindow()),
            ceil:makeTex(texCeil()),white:makeTex(texWhite()),wall:makeTex(texWall()),
-           screen:makeTex(texScreen()), visao:makeTex(texVisao())};
-SCR.tex=TEXES.screen; VIS.tex=TEXES.visao;
+           screen:makeTex(texScreen()), visao:makeTex(texVisao()),
+           epi:makeTex(texEpi())};
+SCR.tex=TEXES.screen; VIS.tex=TEXES.visao; EPI.tex=TEXES.epi;
+GATE.buf=gl.createBuffer();
 
 /* buffer único, desenhado em faixas por textura */
 var STRIDE=15, batches=[], all=[];
 Object.keys(GROUPS).forEach(function(k){
   var arr=GROUPS[k];
   batches.push({tex:TEXES[k]||TEXES.white, start:all.length/STRIDE, count:arr.length/STRIDE,
-                self:(k==="screen"||k==="visao")?2.45:0});
+                self:(k==="screen"||k==="visao"||k==="epi")?2.45:0});
   for(var i=0;i<arr.length;i++) all.push(arr[i]);
 });
 var vbo=gl.createBuffer();
@@ -1879,7 +2212,8 @@ var STOPS=[
   {n:"Vão da escada",  k:"02", x:0.60, y:EYE,z:-7.40, yaw:-1.05,  pitch:-0.50},
   {n:"Corredor",       k:"03", x:0,    y:EYE,z:-4.20, yaw:0,      pitch:-0.03},
   {n:"Visão · bloco",  k:"04", x:0.92, y:EYE,z:0.30,  yaw:-1.16,  pitch:-0.09},
-  {n:"Telão",          k:"05", x:0,    y:EYE,z:5.40,  yaw:0,      pitch:-0.04}
+  {n:"Portão · EPI",   k:"05", x:-0.85,y:EYE,z:-4.15, yaw:1.16,   pitch:-0.06},
+  {n:"Telão",          k:"06", x:0,    y:EYE,z:5.40,  yaw:0,      pitch:-0.04}
 ];
 var glide=null, activeStop=0;
 
@@ -1945,7 +2279,7 @@ var CODES={KeyW:"w",KeyA:"a",KeyS:"s",KeyD:"d",ArrowUp:"w",ArrowLeft:"a",ArrowDo
 addEventListener("keydown",function(e){
   if(CODES[e.code]){keys[CODES[e.code]]=true;glide=null;e.preventDefault();}
   if(e.code==="ShiftLeft"||e.code==="ShiftRight")keys.shift=true;
-  if(e.code>="Digit1"&&e.code<="Digit5"){var n=+e.code.slice(5)-1;if(STOPS[n])goTo(n);}
+  if(e.code>="Digit1"&&e.code<="Digit6"){var n=+e.code.slice(5)-1;if(STOPS[n])goTo(n);}
 });
 addEventListener("keyup",function(e){
   if(CODES[e.code])keys[CODES[e.code]]=false;
@@ -2178,7 +2512,7 @@ function nearestLights(){
 var proj,view,last=performance.now(),hudClock=0,FRAMES=0;
 function frame(now){
   var dt=Math.min(.05,(now-last)/1000);last=now;
-  step(dt); updateArc(dt); tickScreen(dt); tickVisao(dt);
+  step(dt); updateArc(dt); tickScreen(dt); tickVisao(dt); tickEpi(dt); tickGate(dt);
   if(SCR.dirty){                                    // sobe o painel redesenhado
     gl.bindTexture(gl.TEXTURE_2D,SCR.tex);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,SCR.cv);
@@ -2190,6 +2524,12 @@ function frame(now){
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,VIS.cv);
     gl.generateMipmap(gl.TEXTURE_2D);
     VIS.dirty=false;
+  }
+  if(EPI.dirty){                                    // e a tela da liberação de acesso
+    gl.bindTexture(gl.TEXTURE_2D,EPI.tex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,EPI.cv);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    EPI.dirty=false;
   }
 
   var aspect=W/H;
@@ -2235,6 +2575,18 @@ function frame(now){
     gl.uniform1f(U.uSelf,b.self);
     gl.drawArrays(gl.TRIANGLES,b.start,b.count);
   });
+  if(GATE.n){                                       // folha do portão, geometria viva
+    gl.bindBuffer(gl.ARRAY_BUFFER,GATE.buf);
+    gl.vertexAttribPointer(A.pos,3,gl.FLOAT,false,S,0);
+    gl.vertexAttribPointer(A.nrm,3,gl.FLOAT,false,S,12);
+    gl.vertexAttribPointer(A.uv,2,gl.FLOAT,false,S,24);
+    gl.vertexAttribPointer(A.col,3,gl.FLOAT,false,S,32);
+    gl.vertexAttribPointer(A.emi,3,gl.FLOAT,false,S,44);
+    gl.vertexAttribPointer(A.spec,1,gl.FLOAT,false,S,56);
+    gl.bindTexture(gl.TEXTURE_2D,TEXES.white);
+    gl.uniform1f(U.uSelf,0);
+    gl.drawArrays(gl.TRIANGLES,0,GATE.n);
+  }
 
   // brilhos aditivos
   gl.useProgram(glowProg);
@@ -2272,6 +2624,9 @@ window.__D={cam:cam,batches:batches,tris:TRIS,lights:LIGHTS,glows:GLOWS,stations
             canal:function(i){SCR.auto=false;setCanal(i);marcaCanal();},
             painel:function(){return SCR.cv.toDataURL();},
             visao:function(){return VIS.cv.toDataURL();},
+            epi:function(){return EPI.cv.toDataURL();},
+            fase:function(f,i){EPI.fase=f;EPI.t=0;EPI.faltando=(i===undefined?null:i);
+              GATE.alvo=(f==='liberado')?-1.15:0;drawEpi(EPI.ctx);EPI.dirty=true;},
             set:function(o){glide=null;for(var k in o)cam[k]=o[k];}};
 
 /* pose de depuração: #pose=x,y,z,yaw,pitch */
