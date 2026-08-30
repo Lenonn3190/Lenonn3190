@@ -16,7 +16,7 @@ biblioteca 3D e com a fotografia de referência embutida. Basta abrir no navegad
 | Andar | `W` `A` `S` `D` ou setas | manche na metade esquerda da tela |
 | Olhar | mouse (clique para capturar o cursor) ou arraste | arraste na metade direita |
 | Correr | `Shift` | — |
-| Ir a uma parada | `1` a `5` ou os botões do canto superior direito | botões |
+| Ir a uma parada | `1` a `7` ou os botões do canto superior direito | botões |
 | Soltar o cursor | `Esc` | — |
 
 ## O telão e as TVs
@@ -92,8 +92,27 @@ redesenho cai para 2 fps quando a câmera está longe da TV, para não gastar up
 de textura à toa.
 
 **Comparar foto** sobrepõe a fotografia original ao render, na mesma posição de
-câmera e no mesmo campo de visão em que ela foi tirada. **Arco de solda** liga o
-disparo periódico do arco em uma das estações.
+câmera e no mesmo campo de visão em que ela foi tirada.
+
+## Modo VR e tour guiado
+
+O botão **Modo VR** (na capa ou no rodapé) coloca a sala em estéreo lado a lado
+para um celular dentro de um óculos simples. A cabeça vem do giroscópio
+(`deviceorientation`, com o pedido de permissão exigido no iOS) e **nada precisa
+das mãos**:
+
+| Gesto | O que faz |
+| --- | --- |
+| Fixar o olhar numa baliza | Teleporta para a parada, depois de 1,4 s de contagem no anel da mira |
+| Abaixar o olhar | Anda para frente; quanto mais baixo, mais rápido |
+| Olhar bem para cima | Reorienta a sala à sua frente, corrigindo a deriva do giroscópio |
+| Tocar na tela | Sai do modo VR |
+
+As sete paradas viram balizas flutuantes na altura dos olhos, em âmbar, e a que
+está sob a mira acende em azul. O **Tour guiado** percorre as paradas sozinho, com
+uma legenda explicando cada uma — ligue antes de colocar o celular no óculos e a
+sala se apresenta sem ninguém tocar em nada; fixar o olhar numa baliza assume o
+controle de volta.
 
 ## Como foi feito
 
