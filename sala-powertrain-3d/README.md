@@ -94,6 +94,79 @@ de textura à toa.
 **Comparar foto** sobrepõe a fotografia original ao render, na mesma posição de
 câmera e no mesmo campo de visão em que ela foi tirada.
 
+## Um modo só: tela cheia, no dedo
+
+O botão **Entrar na sala** abre em tela cheia (e trava em paisagem no celular).
+Daí para frente é tudo direto:
+
+| No celular | No computador |
+| --- | --- |
+| Arraste na tela para olhar | Mouse para olhar (clique prende o cursor) |
+| Manche no canto esquerdo para andar | `W` `A` `S` `D` ou setas, `Shift` corre |
+| Toque numa baliza para ir até ela | Clique numa baliza, com o cursor preso |
+| Botões das paradas no canto | `1` a `7` ou os botões do canto |
+
+As sete paradas aparecem na sala como **balizas flutuantes** na altura dos olhos,
+em âmbar; a que estiver no meio da vista acende em azul e mostra o nome logo
+abaixo do centro — é o alvo do toque. O **Tour guiado** percorre todas sozinho,
+com uma legenda explicando cada uma; qualquer baliza tocada retoma o controle.
+O botão **Tela cheia** entra e sai a qualquer momento.
+
+## A estação de visão computacional
+
+A bancada do meio, do lado direito de quem entra, é uma célula de inspeção: um
+bloco de motor de alumínio de quatro cilindros preso na placa de fixação, uma
+câmera Intelbras presa no braço logo acima, apontada para baixo, com anel de luz
+próprio, mais o CLP na prateleira e a torre de sinalização na quina da bancada.
+
+A **TV logo acima dessa bancada não repete o telão** — ela mostra o frontend do
+sistema: a imagem da câmera com a região de interesse, uma caixa de detecção por
+cilindro com o diâmetro medido, o achado de porosidade quando aparece, e ao lado
+o laudo da peça (aprovado ou reprovado), as características medidas contra a
+tolerância e os indicadores do turno. Uma peça nova entra a cada 3,4 segundos e
+uma em cada seis reprova, para a tela não ficar parada. Os dados vivem no objeto
+`VIS`, no bloco do frontend.
+
+## A liberação de acesso por EPI
+
+A bancada da esquerda, perto da entrada, é a segunda célula de visão — de
+segurança. Uma câmera comum, presa na coluna, olha quem chega na porta do forno
+fusor. Sobre a mesa há um portão pequeno com trava eletromagnética, leitor de
+crachá e placa de advertência: **a folha do portão só abre quando todos os EPIs
+são reconhecidos**, e o LED da trava acompanha o veredito.
+
+A TV acima mostra o frontend: a imagem da câmera com o operador diante da boca do
+forno e uma caixa de detecção por EPI (capacete, protetor facial, auricular,
+avental e perneira aluminizados, luvas de raspa, botina), a lista dos EPIs
+exigidos com a confiança de cada um, o estado da trava escrito por extenso e o
+histórico das últimas tentativas. O ciclo roda sozinho — chega alguém, o sistema
+lê, libera ou bloqueia — e cerca de uma tentativa em quatro é barrada.
+
+A folha do portão é a única geometria viva da cena: ela é regerada a cada quadro
+no ângulo atual e enviada num buffer próprio, separado do buffer estático.
+
+## A célula de PDI e o tablet do CheckSync
+
+A quarta bancada é a da inspeção de PDI. Sobre a mesa há um tablet numa base
+inclinada com o **CheckSync ETG aberto na tela de nova inspeção** — equipamento,
+responsável, assinatura e o checklist com os botões Conforme / Ressalva / Não
+Conf. / N/A —, além do leitor de código de barras e da bandeja de documentos.
+
+Na TV acima, a **célula com dois robôs**: um motor montado sobre o palete gira na
+mesa a 12 °/s enquanto os dois braços varrem a peça, e o checklist ao lado avança
+um ponto a cada trecho da volta — coletor, tampa de válvulas, chicote, bomba
+d'água, polia, cárter, volante e etiqueta. O ponto da vez fica marcado na própria
+peça, com a chamada saindo dela.
+
+Essa vista 3D é desenhada por software dentro do canvas: um projetor próprio
+(`pr3`) com ordenação por profundidade e sombreamento por normal, montando o
+motor, o palete, a mesa e os robôs a partir de caixas, prismas e tubos. O
+redesenho cai para 2 fps quando a câmera está longe da TV, para não gastar upload
+de textura à toa.
+
+**Comparar foto** sobrepõe a fotografia original ao render, na mesma posição de
+câmera e no mesmo campo de visão em que ela foi tirada.
+
 ## Modo VR e tour guiado
 
 O botão **Modo VR** (na capa ou no rodapé) coloca a sala em estéreo lado a lado

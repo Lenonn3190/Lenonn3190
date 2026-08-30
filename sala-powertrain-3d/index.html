@@ -109,7 +109,7 @@
     border:1px solid var(--rule);border-bottom-width:2px;padding:2px 5px;min-width:20px;text-align:center;
     background:rgba(147,160,170,.09);
   }
-  #toggles{display:flex;gap:1px}
+  #toggles{display:flex;gap:1px;flex-wrap:wrap;max-width:min(94vw,760px)}
   .tgl{
     padding:7px 11px;background:rgba(12,14,17,.72);border:1px solid rgba(147,160,170,.22);
     backdrop-filter:blur(9px);-webkit-backdrop-filter:blur(9px);
@@ -138,6 +138,23 @@
   #comparebar input[type=range]{width:min(38vw,230px);accent-color:var(--sinal);height:18px}
   #cmpval{color:var(--bone);min-width:52px;text-align:right}
 
+  /* marcador do centro e nome da baliza sob a mira */
+  #centro{inset:0;pointer-events:none}
+  #mira{
+    position:absolute;left:50%;top:50%;width:7px;height:7px;margin:-3.5px 0 0 -3.5px;
+    border-radius:50%;background:rgba(233,240,245,.6);opacity:0;transition:opacity .2s;
+    box-shadow:0 0 6px rgba(0,0,0,.7);
+  }
+  body.locked #mira,body.touch #mira{opacity:1}
+  #alvo{
+    position:absolute;left:50%;top:calc(50% + 40px);transform:translateX(-50%);
+    opacity:0;transition:opacity .16s;white-space:nowrap;
+    font-family:"Barlow Condensed","Barlow Semi Condensed",sans-serif;
+    text-transform:uppercase;letter-spacing:.12em;font-weight:600;font-size:14px;
+    color:var(--strike);text-shadow:0 2px 12px rgba(0,0,0,.9);
+  }
+  #alvo.on{opacity:1}
+
   /* faixa do tour guiado */
   #faixa{left:50%;transform:translateX(-50%);bottom:152px;display:none;max-width:min(86vw,720px)}
   body.tour #faixa{display:block}
@@ -147,47 +164,6 @@
     text-transform:uppercase;letter-spacing:.1em;font-weight:700;margin-right:8px;
   }
   #t-tour[aria-pressed="true"] s{background:var(--sinal);box-shadow:0 0 8px rgba(255,90,43,.7)}
-
-  /* ---------- modo VR de celular ---------- */
-  #vrhud{position:absolute;inset:0;display:none;z-index:6;pointer-events:none}
-  body.vr #vrhud{display:flex}
-  body.vr .hud,body.vr #about,body.vr #stick,body.vr #grain,body.vr #gate,
-  body.vr #comparebar{display:none !important}
-  body.vr #frame{background:#000}
-  .olho{width:50%;height:100%;position:relative;display:grid;place-items:center}
-  .olho .mira{width:64px;height:64px;overflow:visible}
-  .mira .tr{fill:none;stroke:rgba(233,240,245,.26);stroke-width:3}
-  .mira .pg{fill:none;stroke:var(--sinal);stroke-width:4.5;stroke-linecap:round;
-    stroke-dasharray:138;stroke-dashoffset:138;
-    transform:rotate(-90deg);transform-origin:30px 30px}
-  .mira .pt{fill:rgba(233,240,245,.9)}
-  .mira.ativa .tr{stroke:rgba(207,230,255,.5)}
-  .mira.ativa .pt{fill:var(--strike)}
-  .olho .dica{
-    position:absolute;top:calc(50% + 58px);left:6%;right:6%;text-align:center;
-    font-family:"Barlow Condensed","Barlow Semi Condensed",sans-serif;
-    text-transform:uppercase;letter-spacing:.1em;font-weight:600;font-size:15px;
-    color:rgba(233,240,245,.85);text-shadow:0 2px 12px rgba(0,0,0,.9);
-  }
-  .olho .diag{
-    position:absolute;bottom:14px;left:5%;right:5%;text-align:center;
-    font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;line-height:1.45;
-    color:rgba(147,160,170,.75);text-shadow:0 1px 6px rgba(0,0,0,.9);
-  }
-  .olho .diag.alerta{color:#ffb38a}
-  #forabtn{
-    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    display:none;pointer-events:auto;z-index:9;text-align:center;text-decoration:none;
-    padding:15px 22px;background:var(--sinal);color:#100c09;
-    font-family:"Barlow Condensed","Barlow Semi Condensed",sans-serif;font-weight:700;
-    text-transform:uppercase;letter-spacing:.12em;font-size:16px;line-height:1.25;
-    box-shadow:0 12px 30px rgba(0,0,0,.5);
-  }
-  #forabtn small{display:block;font-family:"Barlow",sans-serif;font-weight:500;
-    text-transform:none;letter-spacing:0;font-size:12px;opacity:.8;margin-top:4px}
-  body.vr.semgiro #forabtn{display:block}
-  body.vr.semgiro .olho .mira{opacity:.25}
-  #t-vr s{background:var(--sinal);box-shadow:0 0 8px rgba(255,90,43,.7)}
 
   /* ---------- gate ---------- */
   #gate{
@@ -204,20 +180,8 @@
     font-size:clamp(30px,6vw,46px);line-height:.98;letter-spacing:.035em;text-transform:uppercase;text-wrap:balance;
   }
   #gatebox p{margin:0;color:var(--haze);font-size:14.5px;line-height:1.55;max-width:34em}
-  #gatebtns{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:4px}
-  #entervr{
-    padding:13px 22px;border:1px solid var(--rule);background:rgba(147,160,170,.08);
-    color:var(--bone);font-family:"Barlow Condensed","Barlow Semi Condensed",sans-serif;
-    font-weight:700;text-transform:uppercase;letter-spacing:.13em;font-size:16px;
-    transition:border-color .14s,color .14s,background .14s;
-  }
-  #entervr:hover{border-color:var(--strike);color:var(--strike);background:rgba(207,230,255,.10)}
-  #foralink{
-    display:none;margin-top:-4px;color:var(--strike);font-size:13px;
-    border-bottom:1px solid rgba(207,230,255,.4);text-decoration:none;padding-bottom:1px;
-  }
-  body.emquadro #foralink{display:inline-block}
   #enter{
+    margin-top:4px;
     padding:13px 26px;background:var(--sinal);color:#100c09;
     font-family:"Barlow Condensed","Barlow Semi Condensed",sans-serif;font-weight:700;
     text-transform:uppercase;letter-spacing:.13em;font-size:16px;
@@ -254,6 +218,9 @@
     transform:translate(-50%,-50%);background:rgba(207,230,255,.5)}
   body.touch #stick.on{display:block}
   body.touch #legend{display:none}
+  #legendatoque{display:none;padding:9px 13px;font-size:12.5px;color:var(--haze);
+    max-width:min(92vw,520px);line-height:1.4}
+  body.touch #legendatoque{display:block}
 
   @media (max-width:720px){
     #ident{padding:10px}#ident .plate{min-width:0}
@@ -302,11 +269,14 @@
 
     <div class="hud" id="keys">
       <div id="toggles">
+        <button class="tgl" id="t-full" aria-pressed="false"><s></s>Tela cheia</button>
         <button class="tgl" id="t-tour" aria-pressed="false"><s></s>Tour guiado</button>
-        <button class="tgl" id="t-vr"><s></s>Modo VR</button>
         <button class="tgl" id="t-canal" aria-pressed="true"><s></s>Telão: <em id="canal">Andon</em></button>
         <button class="tgl" id="t-cmp" aria-pressed="false"><s></s>Comparar foto</button>
         <button class="tgl" id="t-info" aria-pressed="false"><s></s>Sobre</button>
+      </div>
+      <div class="plate" id="legendatoque">
+        Arraste para olhar · manche no canto esquerdo para andar · toque numa baliza para ir até ela
       </div>
       <div class="plate" id="legend">
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</div>
@@ -339,7 +309,7 @@
         <li><b>Estação de visão computacional</b>: bloco de alumínio de 4 cilindros sob uma câmera Intelbras com anel de luz — a TV logo acima mostra o frontend do sistema, com a imagem da câmera e o laudo da peça</li>
         <li><b>Liberação de acesso por EPI</b>: câmera comum olhando quem chega no portão da fusão; o portãozinho da bancada só destrava quando todos os EPIs são reconhecidos</li>
         <li><b>Célula de PDI</b>: tablet com o CheckSync ETG aberto na nova inspeção, e na TV acima dois robôs inspecionando um motor montado que gira em vista 3D, com o checklist andando junto</li>
-        <li><b>Modo VR e tour guiado</b>: no celular dentro do óculos a sala vira estéreo e tudo é comandado pelo olhar; o tour percorre as sete paradas sozinho</li>
+        <li><b>Balizas e tour guiado</b>: as sete paradas aparecem como marcos flutuantes — toque ou clique num deles para ir até lá; o tour percorre todos sozinho, com legenda</li>
         <li><b>Vão do mezanino</b> com guarda-corpo tubular e escada para o piso inferior</li>
         <li><b>Faixa de LED</b> em espinha de peixe no teto laqueado, entre as janelas contínuas</li>
       </ul>
@@ -348,25 +318,20 @@
 
     <div id="stick"><b></b></div>
 
+    <div class="hud" id="centro"><div id="mira"></div><div id="alvo"></div></div>
+
     <div class="hud" id="faixa"><div class="plate" id="legenda"></div></div>
 
-    <div id="vrhud">
-      <a id="forabtn" target="_blank" rel="noopener" href="#">Abrir fora do quadro
-        <small>o giroscópio só funciona em aba própria</small></a>
-    </div>
+
 
     <div id="gate">
       <div id="gatebox">
         <div class="rulebar"></div>
         <div class="eyebrow">Percurso imersivo em primeira pessoa</div>
         <h2>Entre na sala de inovação</h2>
-        <p>Ande pelo corredor central, passe pela estação de visão que inspeciona o bloco de motor, olhe as TVs de parede e siga até o telão do fundo, que passa os painéis do departamento. O mouse controla o olhar; as teclas <b>W A S D</b> controlam os passos.</p>
-        <div id="gatebtns">
-          <button id="enter">Entrar na sala</button>
-          <button id="entervr">Entrar com óculos VR</button>
-        </div>
-        <a id="foralink" target="_blank" rel="noopener" href="#">Abrir fora do quadro para o giroscópio funcionar</a>
-        <p style="margin-top:-2px;font-size:13px;color:var(--haze)">No óculos, tudo é feito com o olhar: fixe uma baliza para se teleportar, abaixe o olhar para andar, olhe para cima para reorientar a sala.</p>
+        <p>Ande pelo corredor central, passe pela estação de visão que inspeciona o bloco de motor, olhe as TVs de parede e siga até o telão do fundo, que passa os painéis do departamento.</p>
+        <p style="font-size:13.5px">No celular, <b>arraste para olhar</b>, use o <b>manche no canto esquerdo</b> para andar e <b>toque numa baliza</b> para ir direto até ela. No computador, mouse para olhar e <b>W A S D</b> para os passos. A sala abre em tela cheia.</p>
+        <button id="enter">Entrar na sala</button>
         <div id="gatespec">
           <div><b>19,0 m</b><span>Comprimento</span></div>
           <div><b>4,4 m</b><span>Largura</span></div>
@@ -2173,11 +2138,8 @@ var LIGHTS=[], GLOWS=[], BLOCKERS=[];
 var STATIONS=[];
 /* portão da fusão: a folha gira conforme o veredito do sistema de EPI */
 var GATE={ang:0, alvo:0, x:0, y:0, hz:0, buf:null, n:0, feito:-9};
-/* modo VR de celular: estéreo, giroscópio e comandos pelo olhar */
-var VR={on:false, ipd:0.062, t:0, alvo:-1, dwell:0, andando:false,
-        cima:0, yawOff:0, yawBruto:0, giro:false, buf:null, n:0,
-        ev:0, fonte:"—", perm:"—", perms:"—", a:0, b:0, g:0, semSinal:0, sensor:null,
-        toque:0, ultimoToque:0};
+/* balizas de destino, sempre visíveis na sala */
+var BAL={buf:null, n:0, t:0, foco:-1};
 
 
 function addBlocker(x0,x1,z0,z1){BLOCKERS.push([x0,x1,z0,z1]);}
@@ -2687,7 +2649,7 @@ var TEXES={carpet:makeTex(texCarpet()),panel:makeTex(texPanel()),window:makeTex(
            screen:makeTex(texScreen()), visao:makeTex(texVisao()),
            epi:makeTex(texEpi()), pdi:makeTex(texPdi()), tab:makeTex(texTablet())};
 SCR.tex=TEXES.screen; VIS.tex=TEXES.visao; EPI.tex=TEXES.epi; PDI.tex=TEXES.pdi;
-GATE.buf=gl.createBuffer(); VR.buf=gl.createBuffer();
+GATE.buf=gl.createBuffer(); BAL.buf=gl.createBuffer();
 
 /* buffer único, desenhado em faixas por textura */
 var STRIDE=15, batches=[], all=[];
@@ -2788,7 +2750,7 @@ function step(dt){
     var e=glide.t<.5?4*glide.t*glide.t*glide.t:1-Math.pow(-2*glide.t+2,3)/2;
     var a=glide.from,b=glide.to;
     cam.x=a.x+(b.x-a.x)*e; cam.y=a.y+(b.y-a.y)*e; cam.z=a.z+(b.z-a.z)*e;
-    if(!VR.on){ cam.yaw=a.yaw+glide.dyaw*e; cam.pitch=a.pitch+(b.pitch-a.pitch)*e; }
+    cam.yaw=a.yaw+glide.dyaw*e; cam.pitch=a.pitch+(b.pitch-a.pitch)*e;
     if(glide.t>=1) glide=null;
     return;
   }
@@ -2822,218 +2784,54 @@ function goTo(i){
 }
 
 /* ============================================================
-   modo VR de celular: estéreo lado a lado, cabeça pelo giroscópio
-   e comandos só com o olhar — sem tocar em nada.
+   balizas: marcos flutuantes sobre cada parada. Ficam sempre na sala
+   e servem de atalho — um toque (ou um clique) leva até lá.
    ============================================================ */
-function vrAplica(fx,fy,fz){
-  var n=Math.hypot(fx,fy,fz)||1; fx/=n; fy/=n; fz/=n;
-  VR.yawBruto=Math.atan2(fx,fz);
-  cam.yaw=VR.yawBruto-VR.yawOff;
-  cam.pitch=Math.max(-1.2,Math.min(1.2,Math.asin(Math.max(-1,Math.min(1,fy)))));
-  glide=null;
+function balDir(nx,ny){                       // direção do ponto tocado na tela
+  var tv=Math.tan(FOVV/2), th=tv*Math.max(0.2,ASP);
+  var dy=Math.atan(ny*tv), dx=Math.atan(nx*th);
+  var y=cam.yaw-dx, pt=Math.max(-1.4,Math.min(1.4,cam.pitch+dy)), cp=Math.cos(pt);
+  return [Math.sin(y)*cp, Math.sin(pt), Math.cos(y)*cp];
 }
-function vrOrient(e){
-  // alguns aparelhos mandam alpha nulo nos primeiros eventos: usa o que vier
-  var a=e.alpha, b=e.beta, g=e.gamma;
-  if(a===null&&b===null&&g===null) return;
-  VR.ev++; VR.giro=true; VR.semSinal=0;
-  VR.fonte=e.type==="deviceorientationabsolute"?"absoluto":(e.absolute?"absoluto":"relativo");
-  a=(a||0)*Math.PI/180; b=(b||0)*Math.PI/180; g=(g||0)*Math.PI/180;
-  VR.a=e.alpha||0; VR.b=e.beta||0; VR.g=e.gamma||0;
-  var cX=Math.cos(b),sX=Math.sin(b),cY=Math.cos(g),sY=Math.sin(g),cZ=Math.cos(a),sZ=Math.sin(a);
-  // terceira coluna de Rz·Rx·Ry: para onde aponta o -Z do aparelho
-  var m13=cY*sZ*sX+cZ*sY, m23=sZ*sY-cZ*cY*sX, m33=cX*cY;
-  // do referencial do sensor (Z para cima) para o da sala (Y para cima)
-  vrAplica(-m13, -m33, -m23);
+function balizaEm(nx,ny,tol){                 // qual baliza está sob aquele ponto
+  var f=balDir(nx,ny), melhor=-1, dot0=tol||0.985;
+  STOPS.forEach(function(st,k){
+    var dx=st.x-cam.x, dy=1.45-cam.y, dz=st.z-cam.z, d=Math.hypot(dx,dy,dz);
+    if(d<1.3) return;
+    var dot=(dx*f[0]+dy*f[1]+dz*f[2])/d;
+    if(dot>dot0){ dot0=dot; melhor=k; }
+  });
+  return melhor;
 }
-/* caminho alternativo: API de sensor genérico, quando o evento clássico não vem */
-function vrSensor(){
-  var Cls=(typeof AbsoluteOrientationSensor!=="undefined")?AbsoluteOrientationSensor:
-          ((typeof RelativeOrientationSensor!=="undefined")?RelativeOrientationSensor:null);
-  if(!Cls){ if(!VR.ev) VR.fonte="sem sensor"; return; }
-  try{
-    VR.sensor=new Cls({frequency:60, referenceFrame:"device"});
-    VR.sensor.addEventListener("reading",function(){
-      var q=VR.sensor.quaternion; if(!q) return;
-      VR.ev++; VR.giro=true; VR.semSinal=0; VR.fonte="sensor";
-      var x=q[0],y=q[1],z=q[2],w=q[3], u=[0,0,-1];
-      var tx=2*(y*u[2]-z*u[1]), ty=2*(z*u[0]-x*u[2]), tz=2*(x*u[1]-y*u[0]);
-      var v=[u[0]+w*tx+(y*tz-z*ty), u[1]+w*ty+(z*tx-x*tz), u[2]+w*tz+(x*ty-y*tx)];
-      vrAplica(v[0], v[2], v[1]);
-    });
-    VR.sensor.addEventListener("error",function(ev){
-      VR.fonte="sensor "+((ev.error&&ev.error.name)||"erro");
-    });
-    VR.sensor.start();
-  }catch(err){ VR.fonte="sensor bloqueado"; }
-}
-
-/* balizas flutuantes sobre cada parada, desenhadas como halos */
-function vrBalizas(){
+function balPack(){
   var n=STOPS.length, d=new Float32Array(n*6*9), o=0;
   var cantos=[[-1,-1],[1,-1],[1,1],[-1,-1],[1,1],[-1,1]];
-  STOPS.forEach(function(st,i){
-    var alvo=(VR.alvo===i);
-    var pul=alvo?(0.80+0.30*Math.sin(VR.t*7)):(0.46+0.08*Math.sin(VR.t*2+i));
-    var c=alvo?[0.60,0.86,1.0]:[1.0,0.52,0.24];
-    var tam=alvo?0.46:0.30;
-    for(var k=0;k<6;k++){
-      d[o++]=cantos[k][0]; d[o++]=cantos[k][1];
+  STOPS.forEach(function(st,k){
+    var foco=(BAL.foco===k), aqui=(activeStop===k);
+    var pul=foco?(0.78+0.26*Math.sin(BAL.t*6)):(aqui?0.20:0.40+0.07*Math.sin(BAL.t*1.8+k));
+    var c=foco?[0.60,0.86,1.0]:[1.0,0.52,0.24];
+    var tam=foco?0.44:0.29;
+    for(var q=0;q<6;q++){
+      d[o++]=cantos[q][0]; d[o++]=cantos[q][1];
       d[o++]=st.x; d[o++]=1.45; d[o++]=st.z;
       d[o++]=c[0]*pul; d[o++]=c[1]*pul; d[o++]=c[2]*pul; d[o++]=tam;
     }
   });
-  gl.bindBuffer(gl.ARRAY_BUFFER,VR.buf);
+  gl.bindBuffer(gl.ARRAY_BUFFER,BAL.buf);
   gl.bufferData(gl.ARRAY_BUFFER,d,gl.DYNAMIC_DRAW);
-  VR.n=n*6;
+  BAL.n=n*6;
 }
-
-function vrTick(dt){
-  if(!VR.on) return;
-  VR.t+=dt; VR.semSinal+=dt;
-  var cp=Math.cos(cam.pitch);
-  var f=[Math.sin(cam.yaw)*cp, Math.sin(cam.pitch), Math.cos(cam.yaw)*cp];
-  // qual baliza está sob a mira
-  var melhor=-1, melhorDot=0.982;
-  STOPS.forEach(function(st,i){
-    var dx=st.x-cam.x, dy=1.45-cam.y, dz=st.z-cam.z;
-    var dist=Math.hypot(dx,dy,dz);
-    if(dist<1.5) return;
-    var dot=(dx*f[0]+dy*f[1]+dz*f[2])/dist;
-    if(dot>melhorDot){melhorDot=dot;melhor=i;}
-  });
-  if(melhor!==VR.alvo){ VR.alvo=melhor; VR.dwell=0; }
-  else if(melhor>=0){
-    VR.dwell+=dt;
-    if(VR.dwell>=1.4){ VR.dwell=0; VR.alvo=-1; TOUR.t=0; TOUR.i=melhor; goTo(melhor); }
-  }
-  // olhar para baixo caminha; a velocidade cresce com a inclinação
-  VR.andando=(VR.alvo<0 && cam.pitch<-0.42 && !glide);
-  if(VR.andando){
-    var v=1.35*Math.min(1,(-cam.pitch-0.42)*3.0);
-    var np=collide(cam.x+Math.sin(cam.yaw)*v*dt, cam.z+Math.cos(cam.yaw)*v*dt);
-    cam.x=np[0]; cam.z=np[1];
-  }
-  // olhar bem para cima reorienta a sala à frente
-  if(cam.pitch>0.82){
-    VR.cima+=dt;
-    if(VR.cima>1.1){ VR.cima=0; VR.yawOff=VR.yawBruto; }
-  } else VR.cima=0;
-  vrBalizas();
-  vrMira();
+function balTick(dt){
+  BAL.t+=dt;
+  BAL.foco=balizaEm(0,0,0.988);               // a que está no meio da vista
+  var el=document.getElementById("alvo");
+  if(BAL.foco>=0){ el.textContent=STOPS[BAL.foco].n; el.classList.add("on"); }
+  else el.classList.remove("on");
+  balPack();
 }
-
-/* mira e legenda, repetidas em cada olho */
-var vrMiras=[], vrTextos=[], vrArcos=[], vrDiags=[];
-function vrMira(){
-  var prog2=VR.alvo>=0?Math.min(1,VR.dwell/1.4):(VR.cima>0?Math.min(1,VR.cima/1.1):0);
-  var txt;
-  if(VR.alvo>=0) txt="ir para "+STOPS[VR.alvo].n;
-  else if(VR.cima>0.15) txt="reorientando…";
-  else if(VR.andando) txt="andando";
-  else if(TOUR.on) txt=STOPS[activeStop].n+" — "+STOPS[activeStop].d;
-  else txt="olhe uma baliza · abaixe o olhar para andar";
-  vrArcos.forEach(function(a){ a.style.strokeDashoffset=(138*(1-prog2)).toFixed(1); });
-  vrTextos.forEach(function(t){ t.textContent=txt; });
-  var d;
-  if(VR.ev){
-    d="giro "+VR.fonte+" · "+VR.ev+" ev · α "+Math.round(VR.a)+"° β "+Math.round(VR.b)+
-      "° γ "+Math.round(VR.g)+"° · toque 2× para sair";
-  }else if(VR.semSinal>1.2){
-    var quadro=(window.self!==window.top);
-    var onde=quadro?"EM QUADRO (iframe)":"ABA PRÓPRIA";
-    var causa;
-    if(quadro)
-      causa="dentro do quadro o navegador bloqueia o sensor — toque no botão acima para abrir em aba própria";
-    else if(/denied|erro/i.test(VR.perm))
-      causa="permissão de movimento negada — recarregue a página e toque em Permitir";
-    else if(location.protocol==="content:")
-      causa="o Android abriu o arquivo por content:// (app de Arquivos), e esse endereço não libera sensores — no Chrome digite file:///sdcard/Download/ e toque no arquivo, ou use o endereço https da página";
-    else if(location.protocol!=="https:"&&location.protocol!=="file:"&&location.hostname!=="localhost")
-      causa="o endereço não é seguro ("+location.protocol+") — o sensor só é liberado em https, file:// ou localhost";
-    else if(VR.perms==="denied")
-      causa="os sensores estão bloqueados nas permissões deste site — libere \u2018Sensores de movimento\u2019 e recarregue";
-    else
-      causa="o navegador não entregou o sensor ("+VR.fonte+")";
-    d="SEM GIROSCÓPIO · "+onde+" · "+location.protocol+" · iOS:"+VR.perm+" · sensores:"+VR.perms+
-      " · "+VR.fonte+" — "+causa+". Arraste o dedo para olhar; ligue o TOUR para a sala andar sozinha.";
-  }else{
-    d="procurando o giroscópio…";
-  }
-  vrDiags.forEach(function(t){ t.textContent=d; t.classList.toggle("alerta",!VR.ev&&VR.semSinal>1.2); });
-  document.body.classList.toggle("semgiro",
-    !VR.ev && VR.semSinal>1.2 && window.self!==window.top);
-  vrMiras.forEach(function(m){ m.classList.toggle("ativa",VR.alvo>=0||VR.andando); });
-}
-
-function montaVrHud(){
-  var vh=document.getElementById("vrhud");
-  for(var i=0;i<2;i++){
-    var olho=document.createElement("div");
-    olho.className="olho";
-    olho.innerHTML='<svg class="mira" viewBox="0 0 60 60" aria-hidden="true">'+
-      '<circle cx="30" cy="30" r="22" class="tr"></circle>'+
-      '<circle cx="30" cy="30" r="22" class="pg"></circle>'+
-      '<circle cx="30" cy="30" r="3.2" class="pt"></circle></svg>'+
-      '<div class="dica"></div><div class="diag"></div>';
-    vh.appendChild(olho);
-    vrMiras.push(olho.querySelector(".mira"));
-    vrArcos.push(olho.querySelector(".pg"));
-    vrTextos.push(olho.querySelector(".dica"));
-    vrDiags.push(olho.querySelector(".diag"));
-  }
-}
-
-function entraVR(){
-  if(document.body.classList.contains("compare")) document.getElementById("t-cmp").click();
-  var pede=(typeof DeviceOrientationEvent!=="undefined"&&DeviceOrientationEvent.requestPermission);
-  function liga(){
-    addEventListener("deviceorientation",vrOrient,true);
-    addEventListener("deviceorientationabsolute",vrOrient,true);
-    VR.ev=0; VR.semSinal=0;
-    if(navigator.permissions&&navigator.permissions.query){
-      try{
-        navigator.permissions.query({name:"gyroscope"})
-          .then(function(r){ VR.perms=r.state; })
-          .catch(function(){ VR.perms="n/d"; });
-      }catch(e){ VR.perms="n/d"; }
-    }
-    if(typeof DeviceOrientationEvent==="undefined") VR.fonte="sem API de orientação";
-    setTimeout(function(){ if(VR.on&&!VR.ev) vrSensor(); },900);
-    document.body.classList.add("vr");
-    VR.on=true; VR.alvo=-1; VR.dwell=0; VR.t=0; VR.yawOff=VR.yawBruto;
-    gate.classList.add("gone");
-    if(document.exitPointerLock) document.exitPointerLock();
-    var el=document.documentElement;
-    if(el.requestFullscreen) el.requestFullscreen().catch(function(){});
-    if(screen.orientation&&screen.orientation.lock) screen.orientation.lock("landscape").catch(function(){});
-    resize(); vrMira();
-  }
-  if(pede){
-    DeviceOrientationEvent.requestPermission().then(function(r){
-      VR.perm=r; liga();
-    }).catch(function(err){ VR.perm="erro: "+(err&&err.name||"?"); liga(); });
-  }else{ VR.perm="não exigida"; liga(); }
-}
-function saiVR(){
-  if(!VR.on) return;
-  VR.on=false; VR.n=0;
-  removeEventListener("deviceorientation",vrOrient,true);
-  removeEventListener("deviceorientationabsolute",vrOrient,true);
-  if(VR.sensor){ try{VR.sensor.stop();}catch(e){} VR.sensor=null; }
-  document.body.classList.remove("vr");
-  if(document.fullscreenElement&&document.exitFullscreen) document.exitFullscreen().catch(function(){});
-  resize();
-}
-
+/* tour guiado: a sala se apresenta sozinha */
 function tourTick(dt){
   if(!TOUR.on) return;
-  // no óculos sem giroscópio, o tour passeia o olhar pela sala sozinho
-  if(VR.on&&!VR.ev&&!glide){
-    var base=STOPS[activeStop]||STOPS[0];
-    cam.yaw=base.yaw+Math.sin(TOUR.t*0.42)*0.42;
-    cam.pitch=base.pitch+Math.sin(TOUR.t*0.31+1.1)*0.07;
-  }
   if(glide){ TOUR.t=0; return; }
   TOUR.t+=dt;
   if(TOUR.t>7.5){
@@ -3045,8 +2843,22 @@ function tourTick(dt){
 }
 function legendaTour(){
   var st=STOPS[activeStop]||STOPS[0];
-  var el=document.getElementById("legenda");
-  el.innerHTML='<b>'+st.n+'</b> '+st.d;
+  document.getElementById("legenda").innerHTML='<b>'+st.n+'</b> '+st.d;
+}
+
+/* tela cheia, o mesmo enquadramento de antes */
+function telaCheia(lig){
+  try{
+    if(lig){
+      var el=document.documentElement;
+      if(el.requestFullscreen) el.requestFullscreen().catch(function(){});
+      else if(el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+      if(screen.orientation&&screen.orientation.lock&&matchMedia("(pointer: coarse)").matches)
+        screen.orientation.lock("landscape").catch(function(){});
+    }else if(document.fullscreenElement&&document.exitFullscreen){
+      document.exitFullscreen().catch(function(){});
+    }
+  }catch(e){}
 }
 
 /* teclado */
@@ -3055,7 +2867,6 @@ addEventListener("keydown",function(e){
   if(CODES[e.code]){keys[CODES[e.code]]=true;glide=null;e.preventDefault();}
   if(e.code==="ShiftLeft"||e.code==="ShiftRight")keys.shift=true;
   if(e.code>="Digit1"&&e.code<="Digit7"){var n=+e.code.slice(5)-1;if(STOPS[n])goTo(n);}
-  if(e.code==="Escape"&&VR.on) saiVR();
 });
 addEventListener("keyup",function(e){
   if(CODES[e.code])keys[CODES[e.code]]=false;
@@ -3088,10 +2899,8 @@ function grabPointer(){
   try{ canvas.requestPointerLock(); }catch(e){}          // bloqueado em iframe: sobra o arraste
 }
 canvas.addEventListener("click",function(){
-  if(VR.on){                                   // no VR, só o toque duplo sai
-    var agora=performance.now();
-    if(agora-VR.ultimoToque<420){ saiVR(); }
-    VR.ultimoToque=agora;
+  if(document.pointerLockElement===canvas){     // com o cursor preso, clique = ir à baliza
+    if(BAL.foco>=0) goTo(BAL.foco);
     return;
   }
   grabPointer();
@@ -3099,7 +2908,7 @@ canvas.addEventListener("click",function(){
 
 /* toque: manche à esquerda, olhar à direita */
 var touchMove={active:false,x:0,y:0,id:null,ox:0,oy:0};
-var lookTouch={id:null,x:0,y:0};
+var lookTouch={id:null,x:0,y:0,x0:0,y0:0,t0:0,and:0};
 var stick=document.getElementById("stick"), stickKnob=stick.firstElementChild;
 if(matchMedia("(pointer: coarse)").matches) document.body.classList.add("touch");
 canvas.addEventListener("touchstart",function(e){
@@ -3112,6 +2921,8 @@ canvas.addEventListener("touchstart",function(e){
       glide=null;
     }else if(lookTouch.id===null){
       lookTouch.id=t.identifier;lookTouch.x=t.clientX;lookTouch.y=t.clientY;
+      lookTouch.x0=t.clientX;lookTouch.y0=t.clientY;
+      lookTouch.t0=performance.now();lookTouch.and=0;
     }
   }
   e.preventDefault();
@@ -3126,6 +2937,7 @@ canvas.addEventListener("touchmove",function(e){
       touchMove.x=dx/lim; touchMove.y=-dy/lim;
     }else if(t.identifier===lookTouch.id){
       look((t.clientX-lookTouch.x)*1.7,(t.clientY-lookTouch.y)*1.7);
+      lookTouch.and+=Math.abs(t.clientX-lookTouch.x)+Math.abs(t.clientY-lookTouch.y);
       lookTouch.x=t.clientX;lookTouch.y=t.clientY;
     }
   }
@@ -3138,7 +2950,16 @@ function endTouch(e){
       touchMove.id=null;touchMove.active=false;touchMove.x=touchMove.y=0;
       stick.classList.remove("on");stickKnob.style.transform="translate(-22px,-22px)";
     }
-    if(t.identifier===lookTouch.id) lookTouch.id=null;
+    if(t.identifier===lookTouch.id){
+      // toque curto e parado: vai para a baliza tocada
+      if(lookTouch.and<14&&performance.now()-lookTouch.t0<420){
+        var r=canvas.getBoundingClientRect();
+        var nx=((t.clientX-r.left)/r.width)*2-1, ny=1-((t.clientY-r.top)/r.height)*2;
+        var alvo=balizaEm(nx,ny,0.974);
+        if(alvo>=0) goTo(alvo);
+      }
+      lookTouch.id=null;
+    }
   }
 }
 canvas.addEventListener("touchend",endTouch);
@@ -3159,7 +2980,19 @@ STOPS.forEach(function(s,i){
 var gate=document.getElementById("gate");
 document.getElementById("enter").addEventListener("click",function(){
   gate.classList.add("gone");
+  telaCheia(true);                              // entra em tela cheia, como o modo imersivo
   if(!matchMedia("(pointer: coarse)").matches) grabPointer();
+});
+
+var btFull=document.getElementById("t-full");
+btFull.addEventListener("click",function(){
+  telaCheia(!document.fullscreenElement);
+});
+["fullscreenchange","webkitfullscreenchange"].forEach(function(ev){
+  document.addEventListener(ev,function(){
+    btFull.setAttribute("aria-pressed",document.fullscreenElement?"true":"false");
+    resize();
+  });
 });
 
 toggle("t-tour",function(on){
@@ -3167,14 +3000,6 @@ toggle("t-tour",function(on){
   document.body.classList.toggle("tour",on);
   if(on){ legendaTour(); }
 },false);
-if(window.self!==window.top){                 // dentro de um quadro: oferece a saída
-  document.body.classList.add("emquadro");
-  var lk=document.getElementById("foralink"), fb=document.getElementById("forabtn");
-  lk.href=location.href; fb.href=location.href;
-}
-document.getElementById("entervr").addEventListener("click",entraVR);
-document.getElementById("t-vr").addEventListener("click",entraVR);
-montaVrHud();
 
 function toggle(id,fn,init){
   var el=document.getElementById(id), on=!!init;
@@ -3335,15 +3160,15 @@ function desenhaCena(pj,vw,ex,ey,ez){
     gl.drawArrays(gl.TRIANGLES,0,count);
   }
   halo(glowBuf,GLOWS.length*6);
-  if(VR.on&&VR.n) halo(VR.buf,VR.n);
+  if(BAL.n) halo(BAL.buf,BAL.n);
   gl.depthMask(true);gl.disable(gl.BLEND);
 }
 
-var proj,view,last=performance.now(),hudClock=0,FRAMES=0;
+var proj,view,last=performance.now(),hudClock=0,FRAMES=0,FOVV=1.10,ASP=1;
 function frame(now){
   var dt=Math.min(.05,(now-last)/1000);last=now;
   tourTick(dt);
-  vrTick(dt);
+  balTick(dt);
   step(dt); tickScreen(dt); tickVisao(dt); tickEpi(dt); tickGate(dt); tickPdi(dt);
   if(SCR.dirty){                                    // sobe o painel redesenhado
     gl.bindTexture(gl.TEXTURE_2D,SCR.tex);
@@ -3370,8 +3195,10 @@ function frame(now){
     PDI.dirty=false;
   }
 
-  var aspect=W/H;
+  ASP=W/H;
   var cmpOn=document.body.classList.contains("compare");
+  FOVV=cmpOn?1.23:1.10;
+  if(!cmpOn&&ASP<1) FOVV=Math.min(1.55,FOVV*(1+(1-ASP)*0.42));
 
   gl.enable(gl.DEPTH_TEST);gl.depthFunc(gl.LEQUAL);
   gl.enable(gl.CULL_FACE);gl.cullFace(gl.BACK);
@@ -3380,25 +3207,9 @@ function frame(now){
   gl.viewport(0,0,W,H);
   gl.clear(gl.COLOR_BUFFER_BIT|gl.DEPTH_BUFFER_BIT);
 
-  if(VR.on){
-    // um olho de cada lado, com a distância interpupilar entre eles
-    var ca=Math.cos(cam.yaw), sa=Math.sin(cam.yaw);
-    var dx2=-ca*(VR.ipd/2), dz2=sa*(VR.ipd/2);   // vetor direita da câmera
-    var pv=perspective(1.48,(W/2)/H,.04,64);
-    for(var olho=0;olho<2;olho++){
-      var sg=olho?1:-1;
-      gl.viewport(olho*Math.floor(W/2),0,Math.floor(W/2),H);
-      var ex=cam.x+dx2*sg, ez=cam.z+dz2*sg;
-      desenhaCena(pv,viewFrom([ex,cam.y,ez],cam.yaw,cam.pitch),ex,cam.y,ez);
-    }
-    proj=pv;
-  }else{
-    var fov=cmpOn?1.23:1.10;
-    if(!cmpOn&&aspect<1) fov=Math.min(1.55,fov*(1+(1-aspect)*0.42));
-    proj=perspective(fov,aspect,.05,64);
-    view=viewFrom([cam.x,cam.y,cam.z],cam.yaw,cam.pitch);
-    desenhaCena(proj,view,cam.x,cam.y,cam.z);
-  }
+  proj=perspective(FOVV,ASP,.05,64);
+  view=viewFrom([cam.x,cam.y,cam.z],cam.yaw,cam.pitch);
+  desenhaCena(proj,view,cam.x,cam.y,cam.z);
 
   hudClock+=dt;
   if(hudClock>1/24){hudClock=0;drawHud();}
@@ -3430,7 +3241,6 @@ if(location.hash.indexOf("pose=")>=0){
   gate.classList.add("gone");
 }
 if(location.hash.indexOf("nogate")>=0) gate.classList.add("gone");
-if(location.hash.indexOf("vrauto")>=0) setTimeout(entraVR,120);
 
 })();
 </script>
