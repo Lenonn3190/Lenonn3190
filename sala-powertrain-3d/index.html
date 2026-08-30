@@ -175,6 +175,18 @@
     color:rgba(147,160,170,.75);text-shadow:0 1px 6px rgba(0,0,0,.9);
   }
   .olho .diag.alerta{color:#ffb38a}
+  #forabtn{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    display:none;pointer-events:auto;z-index:9;text-align:center;text-decoration:none;
+    padding:15px 22px;background:var(--sinal);color:#100c09;
+    font-family:"Barlow Condensed","Barlow Semi Condensed",sans-serif;font-weight:700;
+    text-transform:uppercase;letter-spacing:.12em;font-size:16px;line-height:1.25;
+    box-shadow:0 12px 30px rgba(0,0,0,.5);
+  }
+  #forabtn small{display:block;font-family:"Barlow",sans-serif;font-weight:500;
+    text-transform:none;letter-spacing:0;font-size:12px;opacity:.8;margin-top:4px}
+  body.vr.semgiro #forabtn{display:block}
+  body.vr.semgiro .olho .mira{opacity:.25}
   #t-vr s{background:var(--sinal);box-shadow:0 0 8px rgba(255,90,43,.7)}
 
   /* ---------- gate ---------- */
@@ -200,6 +212,11 @@
     transition:border-color .14s,color .14s,background .14s;
   }
   #entervr:hover{border-color:var(--strike);color:var(--strike);background:rgba(207,230,255,.10)}
+  #foralink{
+    display:none;margin-top:-4px;color:var(--strike);font-size:13px;
+    border-bottom:1px solid rgba(207,230,255,.4);text-decoration:none;padding-bottom:1px;
+  }
+  body.emquadro #foralink{display:inline-block}
   #enter{
     padding:13px 26px;background:var(--sinal);color:#100c09;
     font-family:"Barlow Condensed","Barlow Semi Condensed",sans-serif;font-weight:700;
@@ -333,7 +350,10 @@
 
     <div class="hud" id="faixa"><div class="plate" id="legenda"></div></div>
 
-    <div id="vrhud"></div>
+    <div id="vrhud">
+      <a id="forabtn" target="_blank" rel="noopener" href="#">Abrir fora do quadro
+        <small>o giroscópio só funciona em aba própria</small></a>
+    </div>
 
     <div id="gate">
       <div id="gatebox">
@@ -345,6 +365,7 @@
           <button id="enter">Entrar na sala</button>
           <button id="entervr">Entrar com óculos VR</button>
         </div>
+        <a id="foralink" target="_blank" rel="noopener" href="#">Abrir fora do quadro para o giroscópio funcionar</a>
         <p style="margin-top:-2px;font-size:13px;color:var(--haze)">No óculos, tudo é feito com o olhar: fixe uma baliza para se teleportar, abaixe o olhar para andar, olhe para cima para reorientar a sala.</p>
         <div id="gatespec">
           <div><b>19,0 m</b><span>Comprimento</span></div>
@@ -2931,6 +2952,8 @@ function vrMira(){
     d="procurando o giroscópio…";
   }
   vrDiags.forEach(function(t){ t.textContent=d; t.classList.toggle("alerta",!VR.ev&&VR.semSinal>1.2); });
+  document.body.classList.toggle("semgiro",
+    !VR.ev && VR.semSinal>1.2 && window.self!==window.top);
   vrMiras.forEach(function(m){ m.classList.toggle("ativa",VR.alvo>=0||VR.andando); });
 }
 
@@ -3121,6 +3144,11 @@ toggle("t-tour",function(on){
   document.body.classList.toggle("tour",on);
   if(on){ legendaTour(); }
 },false);
+if(window.self!==window.top){                 // dentro de um quadro: oferece a saída
+  document.body.classList.add("emquadro");
+  var lk=document.getElementById("foralink"), fb=document.getElementById("forabtn");
+  lk.href=location.href; fb.href=location.href;
+}
 document.getElementById("entervr").addEventListener("click",entraVR);
 document.getElementById("t-vr").addEventListener("click",entraVR);
 montaVrHud();
@@ -3379,6 +3407,7 @@ if(location.hash.indexOf("pose=")>=0){
   gate.classList.add("gone");
 }
 if(location.hash.indexOf("nogate")>=0) gate.classList.add("gone");
+if(location.hash.indexOf("vrauto")>=0) setTimeout(entraVR,120);
 
 })();
 </script>
