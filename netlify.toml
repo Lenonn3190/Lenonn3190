@@ -1,0 +1,15 @@
+# Publicação da sala na Netlify.
+# Conectando este repositório, o site sai de sala-powertrain-3d/.
+[build]
+  publish = "sala-powertrain-3d"
+  command = ""
+
+# O giroscópio do celular só é liberado em contexto seguro e com esta política.
+# (self) basta para a página aberta direto; para embutir em outro domínio,
+# acrescente a origem aqui e o allow="gyroscope" na tag iframe.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Permissions-Policy = "gyroscope=(self), accelerometer=(self), magnetometer=(self), fullscreen=(self)"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
