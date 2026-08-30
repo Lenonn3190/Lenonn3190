@@ -169,6 +169,12 @@
     text-transform:uppercase;letter-spacing:.1em;font-weight:600;font-size:15px;
     color:rgba(233,240,245,.85);text-shadow:0 2px 12px rgba(0,0,0,.9);
   }
+  .olho .diag{
+    position:absolute;bottom:14px;left:5%;right:5%;text-align:center;
+    font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:11px;line-height:1.45;
+    color:rgba(147,160,170,.75);text-shadow:0 1px 6px rgba(0,0,0,.9);
+  }
+  .olho .diag.alerta{color:#ffb38a}
   #t-vr s{background:var(--sinal);box-shadow:0 0 8px rgba(255,90,43,.7)}
 
   /* ---------- gate ---------- */
@@ -2148,7 +2154,9 @@ var STATIONS=[];
 var GATE={ang:0, alvo:0, x:0, y:0, hz:0, buf:null, n:0, feito:-9};
 /* modo VR de celular: estéreo, giroscópio e comandos pelo olhar */
 var VR={on:false, ipd:0.062, t:0, alvo:-1, dwell:0, andando:false,
-        cima:0, yawOff:0, yawBruto:0, giro:false, buf:null, n:0, aviso:""};
+        cima:0, yawOff:0, yawBruto:0, giro:false, buf:null, n:0,
+        ev:0, fonte:"—", perm:"—", a:0, b:0, g:0, semSinal:0, sensor:null,
+        toque:0, ultimoToque:0};
 
 
 function addBlocker(x0,x1,z0,z1){BLOCKERS.push([x0,x1,z0,z1]);}
@@ -2796,20 +2804,47 @@ function goTo(i){
    modo VR de celular: estéreo lado a lado, cabeça pelo giroscópio
    e comandos só com o olhar — sem tocar em nada.
    ============================================================ */
-function vrOrient(e){
-  if(e.alpha===null||e.alpha===undefined) return;
-  VR.giro=true;
-  var z=e.alpha*Math.PI/180, x=e.beta*Math.PI/180, y=e.gamma*Math.PI/180;
-  var cX=Math.cos(x),sX=Math.sin(x),cY=Math.cos(y),sY=Math.sin(y),cZ=Math.cos(z),sZ=Math.sin(z);
-  // terceira coluna de Rz·Rx·Ry: para onde aponta o -Z do aparelho
-  var m13=cY*sZ*sX+cZ*sY, m23=sZ*sY-cZ*cY*sX, m33=cX*cY;
-  var vx=-m13, vy=-m23, vz=-m33;
-  // do referencial do sensor (Z para cima) para o da sala (Y para cima)
-  var fx=vx, fy=vz, fz=vy;
+function vrAplica(fx,fy,fz){
+  var n=Math.hypot(fx,fy,fz)||1; fx/=n; fy/=n; fz/=n;
   VR.yawBruto=Math.atan2(fx,fz);
   cam.yaw=VR.yawBruto-VR.yawOff;
   cam.pitch=Math.max(-1.2,Math.min(1.2,Math.asin(Math.max(-1,Math.min(1,fy)))));
   glide=null;
+}
+function vrOrient(e){
+  // alguns aparelhos mandam alpha nulo nos primeiros eventos: usa o que vier
+  var a=e.alpha, b=e.beta, g=e.gamma;
+  if(a===null&&b===null&&g===null) return;
+  VR.ev++; VR.giro=true; VR.semSinal=0;
+  VR.fonte=e.type==="deviceorientationabsolute"?"absoluto":(e.absolute?"absoluto":"relativo");
+  a=(a||0)*Math.PI/180; b=(b||0)*Math.PI/180; g=(g||0)*Math.PI/180;
+  VR.a=e.alpha||0; VR.b=e.beta||0; VR.g=e.gamma||0;
+  var cX=Math.cos(b),sX=Math.sin(b),cY=Math.cos(g),sY=Math.sin(g),cZ=Math.cos(a),sZ=Math.sin(a);
+  // terceira coluna de Rz·Rx·Ry: para onde aponta o -Z do aparelho
+  var m13=cY*sZ*sX+cZ*sY, m23=sZ*sY-cZ*cY*sX, m33=cX*cY;
+  // do referencial do sensor (Z para cima) para o da sala (Y para cima)
+  vrAplica(-m13, -m33, -m23);
+}
+/* caminho alternativo: API de sensor genérico, quando o evento clássico não vem */
+function vrSensor(){
+  var Cls=(typeof AbsoluteOrientationSensor!=="undefined")?AbsoluteOrientationSensor:
+          ((typeof RelativeOrientationSensor!=="undefined")?RelativeOrientationSensor:null);
+  if(!Cls){ if(!VR.ev) VR.fonte="sem sensor"; return; }
+  try{
+    VR.sensor=new Cls({frequency:60, referenceFrame:"device"});
+    VR.sensor.addEventListener("reading",function(){
+      var q=VR.sensor.quaternion; if(!q) return;
+      VR.ev++; VR.giro=true; VR.semSinal=0; VR.fonte="sensor";
+      var x=q[0],y=q[1],z=q[2],w=q[3], u=[0,0,-1];
+      var tx=2*(y*u[2]-z*u[1]), ty=2*(z*u[0]-x*u[2]), tz=2*(x*u[1]-y*u[0]);
+      var v=[u[0]+w*tx+(y*tz-z*ty), u[1]+w*ty+(z*tx-x*tz), u[2]+w*tz+(x*ty-y*tx)];
+      vrAplica(v[0], v[2], v[1]);
+    });
+    VR.sensor.addEventListener("error",function(ev){
+      VR.fonte="sensor "+((ev.error&&ev.error.name)||"erro");
+    });
+    VR.sensor.start();
+  }catch(err){ VR.fonte="sensor bloqueado"; }
 }
 
 /* balizas flutuantes sobre cada parada, desenhadas como halos */
@@ -2834,7 +2869,7 @@ function vrBalizas(){
 
 function vrTick(dt){
   if(!VR.on) return;
-  VR.t+=dt;
+  VR.t+=dt; VR.semSinal+=dt;
   var cp=Math.cos(cam.pitch);
   var f=[Math.sin(cam.yaw)*cp, Math.sin(cam.pitch), Math.cos(cam.yaw)*cp];
   // qual baliza está sob a mira
@@ -2868,7 +2903,7 @@ function vrTick(dt){
 }
 
 /* mira e legenda, repetidas em cada olho */
-var vrMiras=[], vrTextos=[], vrArcos=[];
+var vrMiras=[], vrTextos=[], vrArcos=[], vrDiags=[];
 function vrMira(){
   var prog2=VR.alvo>=0?Math.min(1,VR.dwell/1.4):(VR.cima>0?Math.min(1,VR.cima/1.1):0);
   var txt;
@@ -2879,6 +2914,23 @@ function vrMira(){
   else txt="olhe uma baliza · abaixe o olhar para andar";
   vrArcos.forEach(function(a){ a.style.strokeDashoffset=(138*(1-prog2)).toFixed(1); });
   vrTextos.forEach(function(t){ t.textContent=txt; });
+  var d;
+  if(VR.ev){
+    d="giro "+VR.fonte+" · "+VR.ev+" ev · α "+Math.round(VR.a)+"° β "+Math.round(VR.b)+
+      "° γ "+Math.round(VR.g)+"° · toque 2× para sair";
+  }else if(VR.semSinal>1.2){
+    var causa;
+    if(window.self!==window.top)
+      causa="a página está dentro de um quadro (iframe) e o sensor fica bloqueado — abra o link direto no navegador do celular";
+    else if(/denied|erro/i.test(VR.perm))
+      causa="permissão negada ("+VR.perm+") — recarregue e toque em Permitir";
+    else
+      causa="este navegador não entregou o sensor ("+VR.fonte+")";
+    d="SEM SINAL DO GIROSCÓPIO · "+causa+". Arraste o dedo para olhar; o resto (mira, balizas, tour) funciona igual.";
+  }else{
+    d="procurando o giroscópio…";
+  }
+  vrDiags.forEach(function(t){ t.textContent=d; t.classList.toggle("alerta",!VR.ev&&VR.semSinal>1.2); });
   vrMiras.forEach(function(m){ m.classList.toggle("ativa",VR.alvo>=0||VR.andando); });
 }
 
@@ -2891,11 +2943,12 @@ function montaVrHud(){
       '<circle cx="30" cy="30" r="22" class="tr"></circle>'+
       '<circle cx="30" cy="30" r="22" class="pg"></circle>'+
       '<circle cx="30" cy="30" r="3.2" class="pt"></circle></svg>'+
-      '<div class="dica"></div>';
+      '<div class="dica"></div><div class="diag"></div>';
     vh.appendChild(olho);
     vrMiras.push(olho.querySelector(".mira"));
     vrArcos.push(olho.querySelector(".pg"));
     vrTextos.push(olho.querySelector(".dica"));
+    vrDiags.push(olho.querySelector(".diag"));
   }
 }
 
@@ -2904,6 +2957,9 @@ function entraVR(){
   var pede=(typeof DeviceOrientationEvent!=="undefined"&&DeviceOrientationEvent.requestPermission);
   function liga(){
     addEventListener("deviceorientation",vrOrient,true);
+    addEventListener("deviceorientationabsolute",vrOrient,true);
+    VR.ev=0; VR.semSinal=0;
+    setTimeout(function(){ if(VR.on&&!VR.ev) vrSensor(); },900);
     document.body.classList.add("vr");
     VR.on=true; VR.alvo=-1; VR.dwell=0; VR.t=0; VR.yawOff=VR.yawBruto;
     gate.classList.add("gone");
@@ -2913,13 +2969,18 @@ function entraVR(){
     if(screen.orientation&&screen.orientation.lock) screen.orientation.lock("landscape").catch(function(){});
     resize(); vrMira();
   }
-  if(pede){ DeviceOrientationEvent.requestPermission().then(function(r){ liga(); }).catch(liga); }
-  else liga();
+  if(pede){
+    DeviceOrientationEvent.requestPermission().then(function(r){
+      VR.perm=r; liga();
+    }).catch(function(err){ VR.perm="erro: "+(err&&err.name||"?"); liga(); });
+  }else{ VR.perm="não exigida"; liga(); }
 }
 function saiVR(){
   if(!VR.on) return;
   VR.on=false; VR.n=0;
   removeEventListener("deviceorientation",vrOrient,true);
+  removeEventListener("deviceorientationabsolute",vrOrient,true);
+  if(VR.sensor){ try{VR.sensor.stop();}catch(e){} VR.sensor=null; }
   document.body.classList.remove("vr");
   if(document.fullscreenElement&&document.exitFullscreen) document.exitFullscreen().catch(function(){});
   resize();
@@ -2980,7 +3041,15 @@ function grabPointer(){
   if(document.pointerLockElement===canvas||!canvas.requestPointerLock) return;
   try{ canvas.requestPointerLock(); }catch(e){}          // bloqueado em iframe: sobra o arraste
 }
-canvas.addEventListener("click",function(){ if(VR.on){ saiVR(); return; } grabPointer(); });
+canvas.addEventListener("click",function(){
+  if(VR.on){                                   // no VR, só o toque duplo sai
+    var agora=performance.now();
+    if(agora-VR.ultimoToque<420){ saiVR(); }
+    VR.ultimoToque=agora;
+    return;
+  }
+  grabPointer();
+});
 
 /* toque: manche à esquerda, olhar à direita */
 var touchMove={active:false,x:0,y:0,id:null,ox:0,oy:0};
