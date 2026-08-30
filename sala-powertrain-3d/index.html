@@ -2176,7 +2176,7 @@ var GATE={ang:0, alvo:0, x:0, y:0, hz:0, buf:null, n:0, feito:-9};
 /* modo VR de celular: estéreo, giroscópio e comandos pelo olhar */
 var VR={on:false, ipd:0.062, t:0, alvo:-1, dwell:0, andando:false,
         cima:0, yawOff:0, yawBruto:0, giro:false, buf:null, n:0,
-        ev:0, fonte:"—", perm:"—", a:0, b:0, g:0, semSinal:0, sensor:null,
+        ev:0, fonte:"—", perm:"—", perms:"—", a:0, b:0, g:0, semSinal:0, sensor:null,
         toque:0, ultimoToque:0};
 
 
@@ -2940,14 +2940,21 @@ function vrMira(){
     d="giro "+VR.fonte+" · "+VR.ev+" ev · α "+Math.round(VR.a)+"° β "+Math.round(VR.b)+
       "° γ "+Math.round(VR.g)+"° · toque 2× para sair";
   }else if(VR.semSinal>1.2){
+    var quadro=(window.self!==window.top);
+    var onde=quadro?"EM QUADRO (iframe)":"ABA PRÓPRIA";
     var causa;
-    if(window.self!==window.top)
-      causa="a página está dentro de um quadro (iframe) e o sensor fica bloqueado — abra o link direto no navegador do celular";
+    if(quadro)
+      causa="dentro do quadro o navegador bloqueia o sensor — toque no botão acima para abrir em aba própria";
     else if(/denied|erro/i.test(VR.perm))
-      causa="permissão negada ("+VR.perm+") — recarregue e toque em Permitir";
+      causa="permissão de movimento negada — recarregue a página e toque em Permitir";
+    else if(VR.perms==="denied")
+      causa="os sensores estão bloqueados nas permissões deste site — libere \u2018Sensores de movimento\u2019 e recarregue";
+    else if(location.protocol!=="https:"&&location.protocol!=="file:")
+      causa="a página precisa estar em https (ou aberta como arquivo local); em http o sensor não é liberado";
     else
-      causa="este navegador não entregou o sensor ("+VR.fonte+")";
-    d="SEM SINAL DO GIROSCÓPIO · "+causa+". Arraste o dedo para olhar; o resto (mira, balizas, tour) funciona igual.";
+      causa="o navegador não entregou o sensor ("+VR.fonte+")";
+    d="SEM GIROSCÓPIO · "+onde+" · "+location.protocol+" · iOS:"+VR.perm+" · sensores:"+VR.perms+
+      " · "+VR.fonte+" — "+causa+". Arraste o dedo para olhar; ligue o TOUR para a sala andar sozinha.";
   }else{
     d="procurando o giroscópio…";
   }
@@ -2982,6 +2989,14 @@ function entraVR(){
     addEventListener("deviceorientation",vrOrient,true);
     addEventListener("deviceorientationabsolute",vrOrient,true);
     VR.ev=0; VR.semSinal=0;
+    if(navigator.permissions&&navigator.permissions.query){
+      try{
+        navigator.permissions.query({name:"gyroscope"})
+          .then(function(r){ VR.perms=r.state; })
+          .catch(function(){ VR.perms="n/d"; });
+      }catch(e){ VR.perms="n/d"; }
+    }
+    if(typeof DeviceOrientationEvent==="undefined") VR.fonte="sem API de orientação";
     setTimeout(function(){ if(VR.on&&!VR.ev) vrSensor(); },900);
     document.body.classList.add("vr");
     VR.on=true; VR.alvo=-1; VR.dwell=0; VR.t=0; VR.yawOff=VR.yawBruto;
@@ -3011,6 +3026,12 @@ function saiVR(){
 
 function tourTick(dt){
   if(!TOUR.on) return;
+  // no óculos sem giroscópio, o tour passeia o olhar pela sala sozinho
+  if(VR.on&&!VR.ev&&!glide){
+    var base=STOPS[activeStop]||STOPS[0];
+    cam.yaw=base.yaw+Math.sin(TOUR.t*0.42)*0.42;
+    cam.pitch=base.pitch+Math.sin(TOUR.t*0.31+1.1)*0.07;
+  }
   if(glide){ TOUR.t=0; return; }
   TOUR.t+=dt;
   if(TOUR.t>7.5){
