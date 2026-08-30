@@ -247,7 +247,7 @@
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</div>
         <div><kbd>Shift</kbd> correr</div>
         <div><kbd>Mouse</kbd> olhar</div>
-        <div><kbd>1</kbd>–<kbd>6</kbd> paradas</div>
+        <div><kbd>1</kbd>–<kbd>7</kbd> paradas</div>
         <div><kbd>Esc</kbd> soltar cursor</div>
       </div>
     </div>
@@ -273,6 +273,7 @@
         <li><b>4 bancadas</b>, duas de cada lado, cada uma com uma <b>TV de parede</b> repetindo o canal do telão</li>
         <li><b>Estação de visão computacional</b>: bloco de alumínio de 4 cilindros sob uma câmera Intelbras com anel de luz — a TV logo acima mostra o frontend do sistema, com a imagem da câmera e o laudo da peça</li>
         <li><b>Liberação de acesso por EPI</b>: câmera comum olhando quem chega no portão da fusão; o portãozinho da bancada só destrava quando todos os EPIs são reconhecidos</li>
+        <li><b>Célula de PDI</b>: tablet com o CheckSync ETG aberto na nova inspeção, e na TV acima dois robôs inspecionando um motor montado que gira em vista 3D, com o checklist andando junto</li>
         <li><b>Vão do mezanino</b> com guarda-corpo tubular e escada para o piso inferior</li>
         <li><b>Faixa de LED</b> em espinha de peixe no teto laqueado, entre as janelas contínuas</li>
       </ul>
@@ -1484,6 +1485,418 @@ function tickEpi(dt){
   EPI.dirty=true;
 }
 
+/* ---------- TV da quarta bancada: célula PDI com dois robôs ----------
+   O palco 3D é desenhado em canvas por pintor: projeta, ordena por
+   profundidade e preenche. O checklist anda junto com a rotação. */
+var PDI={w:2048,h:1024,cv:null,ctx:null,tex:null,dirty:true,
+  t:0, tq:0, ang:0, atual:0, ciclo:47, pos:[0,0,0],
+  peca:"MT-2291 · 1.5 turbo",
+  itens:[["Coletor de admissão","torque e fixação",1],
+         ["Tampa de válvulas","vedação e parafusos",1],
+         ["Chicote elétrico","conectores travados",1],
+         ["Bomba d'água","folga do rotor",0],
+         ["Polia do virabrequim","alinhamento da correia",0],
+         ["Cárter","ausência de vazamento",0],
+         ["Volante e roda fônica","dentes e sensor",0],
+         ["Etiqueta de identificação","leitura do QR",0]]};
+
+/* ---- projeção do palco ---- */
+var P3={A:0, D:5.0, H:1.05, T:0.28, F:640, cx:0, cy:0}, FS=[];
+function pr3(p){
+  var s=Math.sin(P3.A), co=Math.cos(P3.A);
+  var x=p[0]*co+p[2]*s, z=-p[0]*s+p[2]*co, y=p[1];
+  var zc=z+P3.D, yc=y-P3.H;
+  var cp=Math.cos(P3.T), sp=Math.sin(P3.T);
+  var y2=yc*cp-zc*sp, z2=yc*sp+zc*cp;
+  var f=P3.F/Math.max(0.4,z2);
+  return [P3.cx+x*f, P3.cy-y2*f, z2];
+}
+function sombra(cor,l){
+  var r=(cor>>16)&255, g=(cor>>8)&255, b=cor&255;
+  l=Math.max(0,Math.min(1.35,l));
+  return "rgb("+Math.round(Math.min(255,r*l))+","+Math.round(Math.min(255,g*l))+","+
+         Math.round(Math.min(255,b*l))+")";
+}
+function face3(ps,cor,linha){
+  var u=[ps[1][0]-ps[0][0],ps[1][1]-ps[0][1],ps[1][2]-ps[0][2]];
+  var v=[ps[2][0]-ps[1][0],ps[2][1]-ps[1][1],ps[2][2]-ps[1][2]];
+  var n=[u[1]*v[2]-u[2]*v[1], u[2]*v[0]-u[0]*v[2], u[0]*v[1]-u[1]*v[0]];
+  var s=Math.sin(P3.A), co=Math.cos(P3.A);
+  var nx=n[0]*co+n[2]*s, nz=-n[0]*s+n[2]*co, ny=n[1];
+  var len=Math.hypot(nx,ny,nz)||1;
+  var lum=0.42+0.66*Math.abs((nx*0.34+ny*0.88+nz*0.33)/len);
+  var pj=ps.map(pr3), z=0;
+  pj.forEach(function(q){z+=q[2];});
+  FS.push({p:pj, z:z/pj.length, c:sombra(cor,lum), l:linha});
+}
+function box3(cx,cy,cz,w,h,d,cor){
+  var x0=cx-w/2,x1=cx+w/2,y0=cy,y1=cy+h,z0=cz-d/2,z1=cz+d/2;
+  var P=[[x0,y0,z0],[x1,y0,z0],[x1,y1,z0],[x0,y1,z0],
+         [x0,y0,z1],[x1,y0,z1],[x1,y1,z1],[x0,y1,z1]];
+  face3([P[4],P[5],P[6],P[7]],cor);  face3([P[1],P[0],P[3],P[2]],cor);
+  face3([P[0],P[4],P[7],P[3]],cor);  face3([P[5],P[1],P[2],P[6]],cor);
+  face3([P[3],P[7],P[6],P[2]],cor);  face3([P[0],P[1],P[5],P[4]],cor);
+}
+function prisma(cx,cy,cz,r,h,n,cor){
+  var top=[],bot=[];
+  for(var i=0;i<n;i++){
+    var a=i/n*Math.PI*2;
+    top.push([cx+Math.cos(a)*r, cy+h, cz+Math.sin(a)*r]);
+    bot.push([cx+Math.cos(a)*r, cy,   cz+Math.sin(a)*r]);
+  }
+  for(var i=0;i<n;i++){
+    var j=(i+1)%n;
+    face3([bot[i],bot[j],top[j],top[i]],cor);
+  }
+  face3(top,cor);
+}
+function tubo3(p0,p1,r,cor){
+  var d=[p1[0]-p0[0],p1[1]-p0[1],p1[2]-p0[2]];
+  var L=Math.hypot(d[0],d[1],d[2])||1; d=[d[0]/L,d[1]/L,d[2]/L];
+  var up=Math.abs(d[1])>0.9?[1,0,0]:[0,1,0];
+  var a=[d[1]*up[2]-d[2]*up[1], d[2]*up[0]-d[0]*up[2], d[0]*up[1]-d[1]*up[0]];
+  var la=Math.hypot(a[0],a[1],a[2])||1; a=[a[0]/la*r,a[1]/la*r,a[2]/la*r];
+  var b=[d[1]*a[2]-d[2]*a[1], d[2]*a[0]-d[0]*a[2], d[0]*a[1]-d[1]*a[0]];
+  function P(pt,sa,sb){return [pt[0]+a[0]*sa+b[0]*sb, pt[1]+a[1]*sa+b[1]*sb, pt[2]+a[2]*sa+b[2]*sb];}
+  var q=[[1,1],[-1,1],[-1,-1],[1,-1]];
+  for(var i=0;i<4;i++){
+    var j=(i+1)%4;
+    face3([P(p0,q[i][0],q[i][1]),P(p0,q[j][0],q[j][1]),
+           P(p1,q[j][0],q[j][1]),P(p1,q[i][0],q[i][1])],cor);
+  }
+  face3([P(p1,1,1),P(p1,-1,1),P(p1,-1,-1),P(p1,1,-1)],cor);
+}
+function robo3(bx,bz,fase,cor){
+  var dir=bx>0?-1:1;
+  var a1=0.82+0.16*Math.sin(fase), a2=-1.05+0.26*Math.sin(fase*0.83+1.2),
+      a3=-0.5+0.3*Math.sin(fase*1.2);
+  prisma(bx,0,bz,0.30,0.26,10,0x2b3138);            // base
+  prisma(bx,0.26,bz,0.24,0.34,10,cor);              // torre
+  var sh=[bx,0.66,bz];
+  var e=[sh[0]+dir*0.92*Math.sin(a1), sh[1]+0.92*Math.cos(a1), bz];
+  var w=[e[0]+dir*0.80*Math.sin(a1+a2), e[1]+0.80*Math.cos(a1+a2), bz];
+  var to=[w[0]+dir*0.26*Math.sin(a1+a2+a3), w[1]+0.26*Math.cos(a1+a2+a3), bz];
+  tubo3(sh,e,0.11,cor);
+  tubo3(e,w,0.085,cor);
+  tubo3(w,to,0.055,0x2b3138);
+  box3(to[0]-0.06,to[1]-0.05,to[2]-0.06,0.12,0.10,0.12,0x1d2126);   // ferramenta
+  return to;
+}
+/* ---- o palco desenhado dentro do retângulo dado ---- */
+function pdiPalco(c,x0,y0,w,h){
+  P3.cx=x0+w/2; P3.F=Math.min(w*0.60,h*0.95); P3.A=PDI.ang; P3.D=4.3; P3.H=0.55;
+  P3.cy=0;
+  var alvo=pr3([0,0.55,0]);                    // recentra o palco no motor
+  P3.cy=y0+h*0.52-alvo[1];
+  FS=[];
+  c.save();c.beginPath();c.rect(x0,y0,w,h);c.clip();
+  var gb=c.createLinearGradient(0,y0,0,y0+h);
+  gb.addColorStop(0,"#0f1726");gb.addColorStop(1,"#080c14");
+  c.fillStyle=gb;c.fillRect(x0,y0,w,h);
+  // grade do piso
+  c.strokeStyle="rgba(59,130,246,.16)";c.lineWidth=1;
+  for(var g=-4;g<=4;g++){
+    var A2=pr3([g*0.6,0,-2.4]), B2=pr3([g*0.6,0,2.4]);
+    c.beginPath();c.moveTo(A2[0],A2[1]);c.lineTo(B2[0],B2[1]);c.stroke();
+    var C2=pr3([-2.4,0,g*0.6]), D2=pr3([2.4,0,g*0.6]);
+    c.beginPath();c.moveTo(C2[0],C2[1]);c.lineTo(D2[0],D2[1]);c.stroke();
+  }
+  // mesa giratória, palete e motor montado
+  prisma(0,-0.02,0,1.32,0.10,20,0x1b2431);
+  prisma(0,0.08,0,1.24,0.05,20,0x30425c);      // prato da mesa
+  box3(0,0.13,0,1.60,0.10,1.02,0x6b5836);      // palete de madeira
+  box3(0,0.23,0,0.78,0.52,0.56,0x9aa2aa);      // bloco
+  box3(0,0.75,0,0.80,0.16,0.58,0x9aa2aa);      // cabeçote
+  box3(0,0.91,0.02,0.62,0.12,0.44,0x2f353c);   // tampa de válvulas
+  box3(0.14,0.60,0.36,0.46,0.30,0.22,0x39414a); // coletor de admissão
+  box3(-0.30,0.42,-0.30,0.34,0.26,0.20,0x6b6055); // coletor de escape
+  box3(0,0.06,0,0.66,0.18,0.48,0x767e86);      // cárter
+  box3(0.52,0.34,0,0.22,0.34,0.42,0x848c94);   // caixa / volante
+  prisma(-0.46,0.30,0.10,0.13,0.10,12,0x3b434b); // polia
+  box3(-0.40,0.52,0.24,0.20,0.18,0.16,0x555d65); // alternador
+
+  var t1=robo3(-1.72,0.10,PDI.t*1.1,0xd7dde3);
+  var t2=robo3(1.72,-0.10,PDI.t*1.1+2.2,0xd7dde3);
+
+  FS.sort(function(a,b){return b.z-a.z;});
+  FS.forEach(function(f){
+    c.beginPath();c.moveTo(f.p[0][0],f.p[0][1]);
+    for(var i=1;i<f.p.length;i++) c.lineTo(f.p[i][0],f.p[i][1]);
+    c.closePath();c.fillStyle=f.c;c.fill();
+    c.strokeStyle="rgba(8,12,18,.55)";c.lineWidth=1;c.stroke();
+  });
+
+  // ponto de inspeção da vez, preso à peça
+  var alvos=[[0.14,0.90,0.36],[0,1.03,0.02],[-0.34,0.70,0.24],[-0.46,0.40,0.10],
+             [-0.46,0.30,0.10],[0,0.06,0.30],[0.52,0.34,0.20],[0.40,0.30,0.30]];
+  var al=alvos[PDI.atual]||alvos[0], ap=pr3(al);
+  var pulso=0.5+0.5*Math.sin(PDI.t*5);
+  c.strokeStyle=VCIAN;c.lineWidth=2;
+  c.beginPath();c.arc(ap[0],ap[1],16+8*pulso,0,7);c.stroke();
+  c.fillStyle=VCIAN;c.beginPath();c.arc(ap[0],ap[1],5,0,7);c.fill();
+  c.beginPath();c.moveTo(ap[0],ap[1]);c.lineTo(ap[0]+70,ap[1]-56);c.lineTo(ap[0]+250,ap[1]-56);
+  c.stroke();
+  c.fillStyle="rgba(8,14,22,.86)";rrect(c,ap[0]+70,ap[1]-84,250,28,6);c.fill();
+  c.fillStyle=VCIAN;c.font='700 18px '+SANS;
+  c.fillText(PDI.itens[PDI.atual][0],ap[0]+80,ap[1]-64);
+
+  // ferramentas dos robôs com o facho de leitura
+  [t1,t2].forEach(function(t){
+    var tp=pr3(t);
+    c.fillStyle="rgba(34,211,238,.5)";
+    c.beginPath();c.arc(tp[0],tp[1],7,0,7);c.fill();
+  });
+
+  // gizmo e legenda do palco
+  c.fillStyle=FAINT3;c.font='600 18px '+SANS;
+  c.fillText("vista 3D · mesa girando a 12 °/s   ·   "+Math.round(PDI.ang*180/Math.PI%360)+"°",x0+22,y0+h-22);
+  c.restore();
+  c.strokeStyle="#233040";c.lineWidth=2;rrect(c,x0,y0,w,h,12);c.stroke();
+}
+var FAINT3="#5d6f88";
+
+function drawPdi(c){
+  var W=PDI.w,H=PDI.h,pad=34;
+  var CARD="#121821", LINHA="#233040", INKV="#eaf2ff", DIM="#8ea0b8";
+  c.fillStyle="#0b0f14";c.fillRect(0,0,W,H);
+  c.textAlign="left";c.textBaseline="alphabetic";
+  c.fillStyle=VCIAN;rrect(c,pad,26,8,44,4);c.fill();
+  c.fillStyle=INKV;c.font='800 40px '+SANS;
+  c.fillText("Célula de PDI",pad+24,60);
+  var wt=c.measureText("Célula de PDI").width;
+  c.fillStyle=DIM;c.font='600 24px '+SANS;
+  c.fillText("· dois robôs · motor montado",pad+40+wt,60);
+  c.fillStyle=FAINT3;c.font='600 20px '+SANS;
+  c.fillText("Simulação do checklist com a peça girando · "+PDI.peca,pad+24,90);
+  c.textAlign="right";
+  c.fillStyle=VOK;c.font='700 22px '+SANS;
+  var wr=c.measureText("CÉLULA EM CICLO").width;
+  c.fillText("CÉLULA EM CICLO",W-pad,58);
+  dot(c,W-pad-wr-18,50,8,VOK);
+  c.fillStyle=DIM;c.font='600 20px '+SANS;
+  c.fillText("ciclo "+PDI.ciclo+" s  ·  robôs R1 e R2 em operação",W-pad,88);
+  c.textAlign="left";
+
+  pdiPalco(c,pad,116,1240,780);
+
+  /* checklist que anda junto com a rotação */
+  var rx=pad+1262, rw=W-pad-rx;
+  var feitos=PDI.atual;
+  c.fillStyle=CARD;rrect(c,rx,116,rw,150,14);c.fill();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,rx,116,rw,150,14);c.stroke();
+  c.fillStyle=DIM;c.font='700 21px '+SANS;c.fillText("CHECKLIST DO PDI",rx+28,158);
+  c.textAlign="right";
+  c.fillStyle=INKV;c.font='800 30px '+SANS;
+  c.fillText(feitos+" / "+PDI.itens.length,rx+rw-28,158);
+  c.textAlign="left";
+  var bw=rw-56;
+  c.fillStyle="#1d2637";rrect(c,rx+28,178,bw,16,8);c.fill();
+  c.fillStyle=VOK;rrect(c,rx+28,178,bw*(feitos/PDI.itens.length),16,8);c.fill();
+  c.fillStyle=FAINT3;c.font='600 19px '+SANS;
+  c.fillText("cada volta da mesa cobre um ponto do roteiro",rx+28,232);
+
+  var ly=282;
+  c.fillStyle=CARD;rrect(c,rx,ly,rw,614,14);c.fill();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,rx,ly,rw,614,14);c.stroke();
+  PDI.itens.forEach(function(it,i){
+    var yy=ly+34+i*74, atual=(i===PDI.atual), feito=(i<PDI.atual);
+    if(atual){
+      c.fillStyle=VCIAN;c.globalAlpha=.12;rrect(c,rx+14,yy-6,rw-28,64,10);c.fill();c.globalAlpha=1;
+      c.strokeStyle=VCIAN;c.lineWidth=2;c.globalAlpha=.6;
+      rrect(c,rx+14,yy-6,rw-28,64,10);c.stroke();c.globalAlpha=1;
+    }
+    var cor=feito?VOK:(atual?VCIAN:"#33415a");
+    c.strokeStyle=cor;c.lineWidth=3;
+    c.beginPath();c.arc(rx+46,yy+22,14,0,7);c.stroke();
+    if(feito){
+      c.beginPath();c.moveTo(rx+39,yy+22);c.lineTo(rx+44,yy+28);c.lineTo(rx+54,yy+15);
+      c.strokeStyle=VOK;c.lineWidth=4;c.stroke();
+    }else if(atual){
+      c.fillStyle=VCIAN;c.beginPath();c.arc(rx+46,yy+22,6,0,7);c.fill();
+    }
+    c.fillStyle=feito||atual?INKV:"#6b7d97";c.font='600 22px '+SANS;
+    c.fillText(it[0],rx+76,yy+18);
+    c.fillStyle=FAINT3;c.font='600 17px '+SANS;
+    c.fillText(it[1],rx+76,yy+42);
+    c.textAlign="right";
+    if(feito){
+      c.fillStyle=VOK;c.font='800 18px '+SANS;c.fillText("CONFORME",rx+rw-26,yy+26);
+    }else if(atual){
+      c.fillStyle=VCIAN;c.font='700 18px '+SANS;c.fillText("lendo…",rx+rw-26,yy+26);
+    }else{
+      c.fillStyle="#3f4d66";c.font='600 18px '+SANS;c.fillText("aguarda",rx+rw-26,yy+26);
+    }
+    c.textAlign="left";
+  });
+
+  var fy=930;
+  c.fillStyle="#0f151c";rrect(c,pad,fy,W-pad*2,58,12);c.fill();
+  c.strokeStyle=LINHA;c.lineWidth=2;rrect(c,pad,fy,W-pad*2,58,12);c.stroke();
+  dot(c,pad+26,fy+29,7,VCIAN);
+  c.fillStyle="#c9d6e6";c.font='700 20px '+SANS;
+  c.fillText("CheckSync ETG · nível 2 funcional",pad+42,fy+37);
+  var wm=c.measureText("CheckSync ETG · nível 2 funcional").width;
+  c.fillStyle=DIM;c.font='600 20px '+SANS;
+  c.fillText("·  o mesmo roteiro aberto no tablet da bancada",pad+58+wm,fy+37);
+  c.textAlign="right";
+  c.fillText("R1 varredura superior  ·  R2 varredura inferior",W-pad-26,fy+37);
+  c.textAlign="left";
+}
+function texPdi(){
+  PDI.cv=document.createElement("canvas");
+  PDI.cv.width=PDI.w;PDI.cv.height=PDI.h;
+  PDI.ctx=PDI.cv.getContext("2d");
+  drawPdi(PDI.ctx);
+  return PDI.cv;
+}
+/* gira sempre; longe da TV desacelera o redesenho para poupar upload */
+function tickPdi(dt){
+  PDI.t+=dt; PDI.ang+=dt*0.21; PDI.tq+=dt;
+  if(PDI.t>3.1*(PDI.atual+1)){                     // avança um ponto do roteiro
+    PDI.atual++;
+    if(PDI.atual>=PDI.itens.length){ PDI.atual=0; PDI.t=0; PDI.ciclo=44+Math.round(Math.random()*8); }
+  }
+  var dx=cam.x-PDI.pos[0], dz=cam.z-PDI.pos[2];
+  var perto=(dx*dx+dz*dz)<49;
+  if(PDI.tq < (perto?0.085:0.5)) return;
+  PDI.tq=0;
+  drawPdi(PDI.ctx);
+  PDI.dirty=true;
+}
+
+/* ---------- tablet da bancada: CheckSync ETG, tela de nova inspeção ----------
+   Canvas 1024x1024 com o formulário desenhado nos 768 px de cima; o quadrilátero
+   do tablet usa só essa faixa (v de 0,25 a 1). Paleta do próprio app. */
+var TAB={w:1024,h:1024,cv:null,ctx:null,tex:null,
+  itens:[["Estrutura e fixação",["Base e chumbadores","C"],["Proteções e grades","C"],["Sinalização de risco","R"]],
+         ["Elétrica e comando",["Botoeira de emergência","C"],["Chicote e conectores","C"],["Painel e IHM",""]]]};
+function drawTablet(c){
+  var W=1024, H=768, pad=22;
+  var BG="#0b1220", PANEL="#0f1830", PANEL2="#152341", LINE="#22304f",
+      TXT="#e8edf7", MUT="#9fb0cc", FAINT="#7286a8",
+      BRAND="#3b82f6", OKC="#22c55e", WARN="#f59e0b", BADC="#ef4444";
+  c.fillStyle="#05070d";c.fillRect(0,0,TAB.w,TAB.h);
+  c.fillStyle=BG;c.fillRect(0,0,W,H);
+  c.textAlign="left";c.textBaseline="alphabetic";
+
+  /* topbar */
+  c.fillStyle=TXT;c.font='800 26px '+SANS;c.fillText("Nova Inspeção",pad,40);
+  c.fillStyle=MUT;c.font='500 14px '+SANS;
+  c.fillText("Preencha o checklist e gere o laudo técnico",pad,62);
+  c.font='700 14px '+SANS;
+  var wG=c.measureText("Gerar Laudo").width+34;
+  c.fillStyle=BRAND;rrect(c,W-pad-wG,22,wG,34,9);c.fill();
+  c.fillStyle="#0a1730";c.fillText("Gerar Laudo",W-pad-wG+17,44);
+  var wC=c.measureText("Cancelar").width+26;
+  c.strokeStyle=LINE;c.lineWidth=2;rrect(c,W-pad-wG-wC-10,22,wC,34,9);c.stroke();
+  c.fillStyle=MUT;c.fillText("Cancelar",W-pad-wG-wC-10+13,44);
+  c.fillStyle=LINE;c.fillRect(pad,76,W-pad*2,1);
+
+  function card(x,y,w,h){
+    c.fillStyle=PANEL;rrect(c,x,y,w,h,12);c.fill();
+    c.strokeStyle=LINE;c.lineWidth=2;rrect(c,x,y,w,h,12);c.stroke();
+  }
+  function titulo(x,y,t){
+    c.fillStyle=BRAND;rrect(c,x,y-11,4,14,2);c.fill();
+    c.fillStyle=TXT;c.font='700 14px '+SANS;c.fillText(t.toUpperCase(),x+12,y);
+  }
+  function campo(x,y,w,rot,val,alt){
+    c.fillStyle=FAINT;c.font='600 11px '+SANS;c.fillText(rot,x,y);
+    c.fillStyle=PANEL2;rrect(c,x,y+7,w,alt||28,7);c.fill();
+    c.strokeStyle=LINE;c.lineWidth=1.5;rrect(c,x,y+7,w,alt||28,7);c.stroke();
+    c.fillStyle=val?TXT:FAINT;c.font=(val?'600 13px ':'500 13px ')+SANS;
+    c.fillText(val||"—",x+10,y+27);
+  }
+
+  /* coluna esquerda */
+  var lx=pad, lw=300;
+  card(lx,90,lw,196);
+  titulo(lx+16,116,"Equipamento");
+  campo(lx+16,140,lw-32,"Ativo a inspecionar","Célula PDI — motor montado");
+  campo(lx+16,196,lw-32,"Template de checklist","PDI · motor montado (robôs)");
+  campo(lx+16,252,lw-32,"Nível de inspeção","Nível 2 — Funcional");
+
+  card(lx,296,lw,242);
+  titulo(lx+16,322,"Responsável");
+  campo(lx+16,346,lw-32,"Inspetor","Lenonn");
+  campo(lx+16,402,lw-32,"Cargo","Técnico de manutenção");
+  campo(lx+16,458,(lw-40)/2,"Matrícula","20481");
+  campo(lx+16+(lw-40)/2+8,458,(lw-40)/2,"Data da inspeção","29/08/2026");
+
+  card(lx,548,lw,196);
+  titulo(lx+16,574,"Assinatura do inspetor");
+  c.fillStyle=PANEL2;rrect(c,lx+16,588,lw-32,110,8);c.fill();
+  c.strokeStyle=LINE;c.lineWidth=1.5;rrect(c,lx+16,588,lw-32,110,8);c.stroke();
+  c.strokeStyle="#cfe0ff";c.lineWidth=2.4;c.beginPath();   // rabisco da assinatura
+  c.moveTo(lx+50,668);
+  c.bezierCurveTo(lx+86,600,lx+104,700,lx+140,632);
+  c.bezierCurveTo(lx+168,584,lx+184,690,lx+222,626);
+  c.bezierCurveTo(lx+238,600,lx+250,652,lx+266,640);
+  c.stroke();
+  c.fillStyle=FAINT;c.font='500 11px '+SANS;
+  c.fillText("Desenhe com o mouse ou toque",lx+16,716);
+
+  /* coluna direita — checklist */
+  var rx=lx+lw+16, rw=W-pad-rx;
+  card(rx,90,rw,654);
+  titulo(rx+16,116,"Checklist de inspeção");
+  c.font='700 12px '+SANS;
+  var wb=c.measureText("EM ANDAMENTO").width+22;
+  c.fillStyle=WARN;c.globalAlpha=.18;rrect(c,rx+rw-wb-16,102,wb,22,11);c.fill();c.globalAlpha=1;
+  c.fillStyle=WARN;c.fillText("EM ANDAMENTO",rx+rw-wb-5,118);
+  // progresso
+  c.fillStyle=FAINT;c.font='600 12px '+SANS;c.fillText("5 de 6 itens avaliados",rx+16,144);
+  c.textAlign="right";c.fillStyle=MUT;c.fillText("83%",rx+rw-16,144);c.textAlign="left";
+  c.fillStyle="#16233d";rrect(c,rx+16,152,rw-32,10,5);c.fill();
+  c.fillStyle=OKC;rrect(c,rx+16,152,(rw-32)*0.83,10,5);c.fill();
+
+  var y=186;
+  TAB.itens.forEach(function(sec){
+    c.fillStyle=MUT;c.font='700 13px '+SANS;c.fillText(sec[0],rx+16,y);
+    c.fillStyle=LINE;c.fillRect(rx+16,y+8,rw-32,1);
+    y+=24;
+    for(var k=1;k<sec.length;k++){
+      var it=sec[k];
+      c.fillStyle=PANEL2;rrect(c,rx+16,y,rw-32,52,8);c.fill();
+      c.strokeStyle=LINE;c.lineWidth=1;rrect(c,rx+16,y,rw-32,52,8);c.stroke();
+      c.fillStyle="#1b2a49";rrect(c,rx+26,y+10,26,16,4);c.fill();
+      c.fillStyle="#7fb0ff";c.font='700 10px '+SANS;c.fillText("N2",rx+31,y+22);
+      c.fillStyle=TXT;c.font='600 14px '+SANS;c.fillText(it[0],rx+60,y+22);
+      // segmento Conforme / Ressalva / Não Conf. / N/A
+      var segs=[["Conforme","C",OKC],["Ressalva","R",WARN],["Não Conf.","NC",BADC],["N/A","NA",FAINT]];
+      var sx=rx+26;
+      segs.forEach(function(g){
+        c.font='700 11px '+SANS;
+        var w2=c.measureText(g[0]).width+18, on=(it[1]===g[1]);
+        c.fillStyle=on?g[2]:"#16223a";rrect(c,sx,y+30,w2,16,5);c.fill();
+        if(!on){c.strokeStyle=LINE;c.lineWidth=1;rrect(c,sx,y+30,w2,16,5);c.stroke();}
+        c.fillStyle=on?"#0a1730":FAINT;c.fillText(g[0],sx+9,y+42);
+        sx+=w2+6;
+      });
+      c.fillStyle=FAINT;c.font='500 11px '+SANS;
+      c.textAlign="right";c.fillText(it[1]?"observação registrada":"aguardando",rx+rw-28,y+42);
+      c.textAlign="left";
+      y+=60;
+    }
+    y+=6;
+  });
+  c.fillStyle=LINE;c.fillRect(rx+16,y,rw-32,1);
+  campo(rx+16,y+26,rw-32,"Parecer técnico e recomendações","Peça liberada; reapertar coletor no próximo turno.",44);
+  campo(rx+16,y+96,rw-32,"Status final do laudo","Automático (com base no checklist)");
+
+  /* rodapé do app */
+  c.fillStyle=FAINT;c.font='500 11px '+SANS;
+  c.fillText("CheckSync ETG — inspeção de ativos industriais",pad,H-14);
+  c.textAlign="right";c.fillText("rascunho salvo · 18:49",W-pad,H-14);c.textAlign="left";
+}
+function texTablet(){
+  TAB.cv=document.createElement("canvas");
+  TAB.cv.width=TAB.w;TAB.cv.height=TAB.h;
+  TAB.ctx=TAB.cv.getContext("2d");
+  drawTablet(TAB.ctx);
+  return TAB.cv;
+}
+
 function drawScreen(){
   var c=SCR.ctx;
   [drawAndon,drawFerias,drawEstoque][SCR.ch](c);
@@ -1566,11 +1979,17 @@ function box(o){
   var emi=o.emissive?(typeof o.emissive==="number"?hex(o.emissive):o.emissive):BLACK;
   var em=o.emi!==undefined?o.emi:1;
   emi=[emi[0]*em,emi[1]*em,emi[2]*em];
-  var spec=o.spec||0, uv=o.uv||1, ry=o.rotY||0;
+  var spec=o.spec||0, uv=o.uv||1, ry=o.rotY||0, rz=o.rotZ||0;
   var hw=o.w/2,hh=o.h/2,hd=o.d/2, cx=o.x, cy=o.y+hh, cz=o.z;
-  var cs=Math.cos(ry), sn=Math.sin(ry);
-  function P(lx,ly,lz){ return [cx+lx*cs+lz*sn, cy+ly, cz-lx*sn+lz*cs]; }
-  function N(nx,ny,nz){ return [nx*cs+nz*sn, ny, -nx*sn+nz*cs]; }
+  var cs=Math.cos(ry), sn=Math.sin(ry), cz2=Math.cos(rz), sz2=Math.sin(rz);
+  function P(lx,ly,lz){
+    var x2=lx*cz2-ly*sz2, y2=lx*sz2+ly*cz2;
+    return [cx+x2*cs+lz*sn, cy+y2, cz-x2*sn+lz*cs];
+  }
+  function N(nx,ny,nz){
+    var x2=nx*cz2-ny*sz2, y2=nx*sz2+ny*cz2;
+    return [x2*cs+nz*sn, y2, -x2*sn+nz*cs];
+  }
   function UV(u,v){return [u*uv,v*uv];}
   var f=o.faces||"nsewtb";
   // +Z / -Z
@@ -1850,6 +2269,8 @@ function station(side,z,idx){
   if(visao){ estacaoVisao(X,z,tw,td,px); tvParede(side,z-.34,"visao"); return; }
   var epi=(side>0&&idx===0);            // a bancada da esquerda, perto da entrada
   if(epi){ estacaoEpi(X,z,tw,px); tvParede(side,z-.30,"epi"); return; }
+  var pdi=(side<0&&idx===0);            // a bancada da direita, perto da entrada
+  if(pdi){ estacaoPdi(X,z,tw,side); tvParede(side,z-.30,"pdi"); return; }
 
   // máscara de solda sobre o tampo
   var hm=(idx%3===0)?0x9a2118:0x1a1d21;
@@ -1987,6 +2408,37 @@ function tickGate(dt){
   gl.bindBuffer(gl.ARRAY_BUFFER,GATE.buf);
   gl.bufferData(gl.ARRAY_BUFFER,v,gl.DYNAMIC_DRAW);
   GATE.n=v.length/STRIDE;
+}
+
+/* bancada do CheckSync: tablet na base, com o formulário de nova inspeção */
+function estacaoPdi(X,z,tw,side){
+  var y0=.825, tzc=z+.14, tilt=-0.40, esp=.018, alt=.215, larg=.30;
+  PDI.pos=[side*(RW-0.085), 1.6, z-0.30];        // onde fica a TV desta bancada
+
+  // base do suporte
+  box({x:X+.02,y:y0,z:tzc,w:.20,h:.018,d:.26,tex:"white",color:0x22272c,spec:.45});
+  box({x:X-.02,y:y0+.016,z:tzc,w:.05,h:.10,d:.12,rotZ:tilt*0.6,tex:"white",color:0x2b3138,spec:.4});
+  // corpo do tablet, inclinado para quem está no corredor
+  var cxc=X+.055, cyc=y0+.13, czc=tzc;
+  box({x:cxc,y:cyc-alt/2,z:czc,w:esp,h:alt,d:larg,rotZ:tilt,tex:"white",color:0x15181b,spec:.5});
+  // tela: mesma inclinação, mostrando os 768 px de cima da textura
+  var cz2=Math.cos(tilt), sz2=Math.sin(tilt);
+  function tp(lx,ly,lz){
+    return [cxc+lx*cz2-ly*sz2, cyc+lx*sz2+ly*cz2, czc+lz];
+  }
+  var e2=esp/2+.001, hy=alt/2-.012, hz2=larg/2-.012;
+  plane({tex:"tab",uv:1,color:0xffffff,spec:.02,
+    n:[cz2,sz2,0],
+    pts:[tp(e2,-hy,hz2),tp(e2,-hy,-hz2),tp(e2,hy,-hz2),tp(e2,hy,hz2)],
+    uvs:[[0,.25],[1,.25],[1,1],[0,1]]});
+
+  // leitor de código de barras e bandeja de documentos
+  box({x:X-.16,y:y0,z:z-.34,w:.10,h:.05,d:.16,rotY:.3,tex:"white",color:0x1d2126,spec:.45});
+  box({x:X-.16,y:y0+.05,z:z-.30,w:.05,h:.02,d:.05,rotY:.3,tex:"white",
+       color:0x8c2317,emissive:0xd83a20,emi:.7});
+  box({x:X+.02,y:y0,z:z-.46,w:.30,h:.02,d:.22,tex:"white",color:0x2b3138,spec:.3});
+  box({x:X+.02,y:y0+.02,z:z-.46,w:.26,h:.012,d:.19,tex:"white",color:0xe9e7e0,spec:.1});
+  GLOWS.push({x:cxc+.06,y:cyc,z:czc,s:.26,c:[.55,.68,.9],a:.10});
 }
 
 /* TV de parede sobre a bancada — mostra o mesmo canal do telão do fundo */
@@ -2149,8 +2601,8 @@ buildRoom();
 var TEXES={carpet:makeTex(texCarpet()),panel:makeTex(texPanel()),window:makeTex(texWindow()),
            ceil:makeTex(texCeil()),white:makeTex(texWhite()),wall:makeTex(texWall()),
            screen:makeTex(texScreen()), visao:makeTex(texVisao()),
-           epi:makeTex(texEpi())};
-SCR.tex=TEXES.screen; VIS.tex=TEXES.visao; EPI.tex=TEXES.epi;
+           epi:makeTex(texEpi()), pdi:makeTex(texPdi()), tab:makeTex(texTablet())};
+SCR.tex=TEXES.screen; VIS.tex=TEXES.visao; EPI.tex=TEXES.epi; PDI.tex=TEXES.pdi;
 GATE.buf=gl.createBuffer();
 
 /* buffer único, desenhado em faixas por textura */
@@ -2158,7 +2610,8 @@ var STRIDE=15, batches=[], all=[];
 Object.keys(GROUPS).forEach(function(k){
   var arr=GROUPS[k];
   batches.push({tex:TEXES[k]||TEXES.white, start:all.length/STRIDE, count:arr.length/STRIDE,
-                self:(k==="screen"||k==="visao"||k==="epi")?2.45:0});
+                self:(k==="screen"||k==="visao"||k==="epi"||k==="pdi")?2.45:
+                     (k==="tab"?2.15:0)});
   for(var i=0;i<arr.length;i++) all.push(arr[i]);
 });
 var vbo=gl.createBuffer();
@@ -2213,7 +2666,8 @@ var STOPS=[
   {n:"Corredor",       k:"03", x:0,    y:EYE,z:-4.20, yaw:0,      pitch:-0.03},
   {n:"Visão · bloco",  k:"04", x:0.92, y:EYE,z:0.30,  yaw:-1.16,  pitch:-0.09},
   {n:"Portão · EPI",   k:"05", x:-0.85,y:EYE,z:-4.15, yaw:1.16,   pitch:-0.06},
-  {n:"Telão",          k:"06", x:0,    y:EYE,z:5.40,  yaw:0,      pitch:-0.04}
+  {n:"PDI · robôs",    k:"06", x:0.72, y:EYE,z:-4.30, yaw:-1.10,  pitch:-0.04},
+  {n:"Telão",          k:"07", x:0,    y:EYE,z:5.40,  yaw:0,      pitch:-0.04}
 ];
 var glide=null, activeStop=0;
 
@@ -2279,7 +2733,7 @@ var CODES={KeyW:"w",KeyA:"a",KeyS:"s",KeyD:"d",ArrowUp:"w",ArrowLeft:"a",ArrowDo
 addEventListener("keydown",function(e){
   if(CODES[e.code]){keys[CODES[e.code]]=true;glide=null;e.preventDefault();}
   if(e.code==="ShiftLeft"||e.code==="ShiftRight")keys.shift=true;
-  if(e.code>="Digit1"&&e.code<="Digit6"){var n=+e.code.slice(5)-1;if(STOPS[n])goTo(n);}
+  if(e.code>="Digit1"&&e.code<="Digit7"){var n=+e.code.slice(5)-1;if(STOPS[n])goTo(n);}
 });
 addEventListener("keyup",function(e){
   if(CODES[e.code])keys[CODES[e.code]]=false;
@@ -2512,7 +2966,7 @@ function nearestLights(){
 var proj,view,last=performance.now(),hudClock=0,FRAMES=0;
 function frame(now){
   var dt=Math.min(.05,(now-last)/1000);last=now;
-  step(dt); updateArc(dt); tickScreen(dt); tickVisao(dt); tickEpi(dt); tickGate(dt);
+  step(dt); updateArc(dt); tickScreen(dt); tickVisao(dt); tickEpi(dt); tickGate(dt); tickPdi(dt);
   if(SCR.dirty){                                    // sobe o painel redesenhado
     gl.bindTexture(gl.TEXTURE_2D,SCR.tex);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,SCR.cv);
@@ -2530,6 +2984,12 @@ function frame(now){
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,EPI.cv);
     gl.generateMipmap(gl.TEXTURE_2D);
     EPI.dirty=false;
+  }
+  if(PDI.dirty){                                    // e a célula 3D girando
+    gl.bindTexture(gl.TEXTURE_2D,PDI.tex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,PDI.cv);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    PDI.dirty=false;
   }
 
   var aspect=W/H;
@@ -2625,6 +3085,8 @@ window.__D={cam:cam,batches:batches,tris:TRIS,lights:LIGHTS,glows:GLOWS,stations
             painel:function(){return SCR.cv.toDataURL();},
             visao:function(){return VIS.cv.toDataURL();},
             epi:function(){return EPI.cv.toDataURL();},
+            pdi:function(){return PDI.cv.toDataURL();},
+            tab:function(){return TAB.cv.toDataURL();},
             fase:function(f,i){EPI.fase=f;EPI.t=0;EPI.faltando=(i===undefined?null:i);
               GATE.alvo=(f==='liberado')?-1.15:0;drawEpi(EPI.ctx);EPI.dirty=true;},
             set:function(o){glide=null;for(var k in o)cam[k]=o[k];}};

@@ -72,6 +72,25 @@ lê, libera ou bloqueia — e cerca de uma tentativa em quatro é barrada.
 A folha do portão é a única geometria viva da cena: ela é regerada a cada quadro
 no ângulo atual e enviada num buffer próprio, separado do buffer estático.
 
+## A célula de PDI e o tablet do CheckSync
+
+A quarta bancada é a da inspeção de PDI. Sobre a mesa há um tablet numa base
+inclinada com o **CheckSync ETG aberto na tela de nova inspeção** — equipamento,
+responsável, assinatura e o checklist com os botões Conforme / Ressalva / Não
+Conf. / N/A —, além do leitor de código de barras e da bandeja de documentos.
+
+Na TV acima, a **célula com dois robôs**: um motor montado sobre o palete gira na
+mesa a 12 °/s enquanto os dois braços varrem a peça, e o checklist ao lado avança
+um ponto a cada trecho da volta — coletor, tampa de válvulas, chicote, bomba
+d'água, polia, cárter, volante e etiqueta. O ponto da vez fica marcado na própria
+peça, com a chamada saindo dela.
+
+Essa vista 3D é desenhada por software dentro do canvas: um projetor próprio
+(`pr3`) com ordenação por profundidade e sombreamento por normal, montando o
+motor, o palete, a mesa e os robôs a partir de caixas, prismas e tubos. O
+redesenho cai para 2 fps quando a câmera está longe da TV, para não gastar upload
+de textura à toa.
+
 **Comparar foto** sobrepõe a fotografia original ao render, na mesma posição de
 câmera e no mesmo campo de visão em que ela foi tirada. **Arco de solda** liga o
 disparo periódico do arco em uma das estações.
