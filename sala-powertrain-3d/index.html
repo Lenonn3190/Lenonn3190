@@ -2947,10 +2947,12 @@ function vrMira(){
       causa="dentro do quadro o navegador bloqueia o sensor — toque no botão acima para abrir em aba própria";
     else if(/denied|erro/i.test(VR.perm))
       causa="permissão de movimento negada — recarregue a página e toque em Permitir";
+    else if(location.protocol==="content:")
+      causa="o Android abriu o arquivo por content:// (app de Arquivos), e esse endereço não libera sensores — no Chrome digite file:///sdcard/Download/ e toque no arquivo, ou use o endereço https da página";
+    else if(location.protocol!=="https:"&&location.protocol!=="file:"&&location.hostname!=="localhost")
+      causa="o endereço não é seguro ("+location.protocol+") — o sensor só é liberado em https, file:// ou localhost";
     else if(VR.perms==="denied")
       causa="os sensores estão bloqueados nas permissões deste site — libere \u2018Sensores de movimento\u2019 e recarregue";
-    else if(location.protocol!=="https:"&&location.protocol!=="file:")
-      causa="a página precisa estar em https (ou aberta como arquivo local); em http o sensor não é liberado";
     else
       causa="o navegador não entregou o sensor ("+VR.fonte+")";
     d="SEM GIROSCÓPIO · "+onde+" · "+location.protocol+" · iOS:"+VR.perm+" · sensores:"+VR.perms+
