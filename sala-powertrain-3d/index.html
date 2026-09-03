@@ -2370,7 +2370,7 @@ function buildRoom(){
   box({x:0,y:2.50,z:RL-.05,w:RW*2,h:.06,d:.07,tex:"white",color:0x1b1f23,spec:.3});   // caixa da tela
 
   /* --- telão de projeção: o painel do departamento --- */
-  var scW=RW*2-0.5, scH=1.48, scY0=0.72, scZ=RL-0.075;
+  var scW=RW*2-0.62, scH=1.48, scY0=0.72, scZ=RL-0.075;
   box({x:0,y:scY0-.05,z:scZ+.03,w:scW+.09,h:scH+.1,d:.05,tex:"white",color:0x101316,spec:.15});
   plane({tex:"screen",uv:1,color:0xffffff,spec:.02,n:[0,0,-1],
     pts:[[scW/2,scY0,scZ],[-scW/2,scY0,scZ],[-scW/2,scY0+scH,scZ],[scW/2,scY0+scH,scZ]],
@@ -2685,15 +2685,15 @@ function farEnd(){
   var RED=0xC01F22, REDd=0x8f1418;
   // --- colunas vermelhas (portal), como nas fotos ---
   [-1,1].forEach(function(s){
-    var x=s*(RW-0.17);
-    box({x:x,y:0,z:4.2,w:.34,h:RH,d:.6,tex:"white",color:RED,spec:.35});
-    box({x:x,y:0,z:4.2,w:.35,h:RH,d:.03,tex:"white",color:REDd,spec:.2}); // quina frontal
-    addBlocker(x-0.2,x+0.24,4.2-0.34,4.2+0.34);
+    var x=s*(RW-0.12);
+    box({x:x,y:0,z:4.2,w:.22,h:RH,d:.55,tex:"white",color:RED,spec:.35});
+    box({x:x,y:0,z:4.2,w:.23,h:RH,d:.03,tex:"white",color:REDd,spec:.2}); // quina frontal
+    addBlocker(x-0.16,x+0.18,4.2-0.30,4.2+0.30);
   });
   // --- flancos vermelhos ladeando o telão, na parede do fundo ---
   [-1,1].forEach(function(s){
-    var x=s*(RW-0.16);
-    box({x:x,y:0,z:RL-0.06,w:.3,h:RH,d:.06,tex:"white",color:RED,spec:.3});
+    var x=s*(RW-0.12);
+    box({x:x,y:0,z:RL-0.06,w:.22,h:RH,d:.06,tex:"white",color:RED,spec:.3});
   });
   // --- painel perfurado preto sob o telão (quadro de marcadores) ---
   box({x:0,y:.12,z:RL-0.07,w:1.5,h:.62,d:.05,tex:"white",color:0x0e1013,spec:.2});
@@ -2898,7 +2898,7 @@ var STOPS=[
    d:"Inspeção do bloco de quatro cilindros por visão: câmera no alto e anel de luz."},
   {n:"Segurança",         k:"05", x:-0.45,y:EYE,z:-1.20, yaw:1.5708, pitch:-0.06,
    d:"Liberação de acesso por EPI: o portão só destrava com todos os EPIs reconhecidos."},
-  {n:"Soluções · TV",     k:"06", x:-0.70,y:EYE,z:-2.30, yaw:1.5708, pitch:0.06,
+  {n:"TV · Sistema de Visão",k:"06", x:-0.70,y:EYE,z:-2.30, yaw:1.5708, pitch:0.06,
    d:"TV central entre as duas bancadas, alternando as soluções de visão, EPI e checklist."},
   {n:"Checklist",         k:"07", x:-0.45,y:EYE,z:2.80,  yaw:1.5708, pitch:-0.04,
    d:"Tablet com o CheckSync e, na TV, a célula com dois robôs girando o motor montado."},
