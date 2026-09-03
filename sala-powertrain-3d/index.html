@@ -282,7 +282,7 @@
         <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> andar</div>
         <div><kbd>Shift</kbd> correr</div>
         <div><kbd>Mouse</kbd> olhar</div>
-        <div><kbd>1</kbd>–<kbd>7</kbd> paradas</div>
+        <div><kbd>1</kbd>–<kbd>8</kbd> paradas</div>
         <div><kbd>Esc</kbd> soltar cursor</div>
       </div>
     </div>
@@ -309,6 +309,7 @@
         <li><b>Estação de visão computacional</b>: bloco de alumínio de 4 cilindros sob uma câmera Intelbras com anel de luz — a TV logo acima mostra o frontend do sistema, com a imagem da câmera e o laudo da peça</li>
         <li><b>Liberação de acesso por EPI</b>: câmera comum olhando quem chega no portão da fusão; o portãozinho da bancada só destrava quando todos os EPIs são reconhecidos</li>
         <li><b>Célula de PDI</b>: tablet com o CheckSync ETG aberto na nova inspeção, e na TV acima dois robôs inspecionando um motor montado que gira em vista 3D, com o checklist andando junto</li>
+        <li><b>Totem de bancada</b>: gerenciamento de ausências e das saídas com carro da frota, apresentado em retrato</li>
         <li><b>Balizas e tour guiado</b>: as sete paradas aparecem como marcos flutuantes — toque ou clique num deles para ir até lá; o tour percorre todos sozinho, com legenda</li>
         <li><b>Vão do mezanino</b> com guarda-corpo tubular e escada para o piso inferior</li>
         <li><b>Faixa de LED</b> em espinha de peixe no teto laqueado, entre as janelas contínuas</li>
@@ -1940,6 +1941,155 @@ function texTablet(){
   return TAB.cv;
 }
 
+/* ---------- totem retrato: Gerenciamento de ausências e saídas com carro da frota ----------
+   Canvas landscape (o telão de parede vê pillarboxed); o totem recorta a
+   coluna central em retrato. Paleta e conteúdo do painel enviado pelo cliente. */
+var FRT={w:2048,h:1024,cv:null,ctx:null,tex:null,dirty:true,t:0,tq:0,
+  hora:"07:41", efetivo:34, cracha:0, prox:8,
+  kpis:[["Ausentes agora","5","de 34 colab.","#f59e0b"],
+        ["Presença","85%","29 em operação","#22c55e"],
+        ["Saídas de hoje","3","eventos no dia","#2dd4bf"],
+        ["Em férias","2","ausência program.","#60a5fa"],
+        ["Em viagem","1","visita / projeto","#818cf8"],
+        ["Retornos · 7 d","4","novas saídas","#22c55e"]],
+  gente:[["M. Nakahara","Usinagem","Férias","retorna 12/09","#60a5fa"],
+         ["Agenor","Montagem","Viagem · projeto","retorna amanhã","#818cf8"],
+         ["S. Kawase","Gestão","Atestado","retorna hoje 14h","#f59e0b"],
+         ["Tanaka","Qualidade","Treino externo","retorna 05/09","#38bdf8"]],
+  frota:[["FQK-2B71","uso","William N.","em uso há 42 min","#f59e0b"],
+         ["GDT-9J40","livre","Guilherme","chave no quadro","#22c55e"],
+         ["HRT-4C15","uso","Nelton","visita a cliente","#f59e0b"],
+         ["IZP-8K23","manut","—","em manutenção · box 3","#ef4444"]]};
+var FBRAND="#3b82f6", FBG="#080e1b", FPAN="#0f1830", FPAN2="#152341",
+    FLINE="#22304f", FTXT="#eaf0fb", FMUT="#9fb0cc", FFAINT="#6f83a5";
+
+function drawFrota(c){
+  var CW=FRT.w, CH=FRT.h;
+  // coluna retrato centrada; o resto é ground escuro (pillarbox do telão)
+  var PW=576, PX=(CW-PW)/2, pad=24, x0=PX+pad, colw=PW-pad*2;
+  var gg=c.createLinearGradient(0,0,0,CH);
+  gg.addColorStop(0,"#060a14");gg.addColorStop(1,"#04070e");
+  c.fillStyle=gg;c.fillRect(0,0,CW,CH);
+  // moldura da coluna
+  var gp=c.createLinearGradient(0,0,0,CH);
+  gp.addColorStop(0,"#0a1224");gp.addColorStop(1,"#080e1b");
+  c.fillStyle=gp;c.fillRect(PX,0,PW,CH);
+  c.strokeStyle=FLINE;c.lineWidth=2;c.strokeRect(PX+1,1,PW-2,CH-2);
+  // rótulo nas laterais (aparece só no telão pillarboxed)
+  c.save();c.translate(PX-30,CH/2);c.rotate(-Math.PI/2);
+  c.textAlign="center";c.fillStyle="rgba(120,140,175,.5)";
+  c.font='700 22px '+SANS;
+  c.fillText("GERENCIAMENTO DE AUSÊNCIAS E SAÍDAS COM CARRO DA FROTA",0,0);
+  c.restore();
+  c.save();c.translate(PX+PW+30,CH/2);c.rotate(Math.PI/2);
+  c.textAlign="center";c.fillStyle="rgba(120,140,175,.5)";
+  c.font='700 22px '+SANS;
+  c.fillText("POWERTRAIN · ETG · TOTEM DE BANCADA",0,0);
+  c.restore();
+
+  c.textAlign="left";c.textBaseline="alphabetic";
+  function rr(x,y,w,h,r){rrect(c,x,y,w,h,r);}
+  function card(x,y,w,h,fill){c.fillStyle=fill||FPAN;rr(x,y,w,h,14);c.fill();
+    c.strokeStyle=FLINE;c.lineWidth=1.5;rr(x,y,w,h,14);c.stroke();}
+
+  /* cabeçalho */
+  c.fillStyle=FBRAND;rr(x0,26,7,42,3);c.fill();
+  c.fillStyle=FTXT;c.font='800 33px '+SANS;
+  c.fillText("Monitor de Ausências",x0+20,54);
+  c.fillStyle=FMUT;c.font='600 16px '+SANS;
+  c.fillText("Powertrain · ETG — gestão de frota",x0+20,78);
+  c.textAlign="right";
+  c.fillStyle=FTXT;c.font='700 30px '+SANS;c.fillText(FRT.hora,x0+colw,56);
+  c.fillStyle=FFAINT;c.font='600 14px '+SANS;c.fillText("hoje · turno A",x0+colw,78);
+  c.textAlign="left";
+  c.fillStyle=FLINE;c.fillRect(x0,96,colw,2);
+
+  /* KPIs — 2 col x 3 linhas */
+  var ky=110, kg=10, kw=(colw-kg)/2, kh=76;
+  FRT.kpis.forEach(function(t,i){
+    var cx=x0+(i%2)*(kw+kg), cy=ky+Math.floor(i/2)*(kh+kg);
+    card(cx,cy,kw,kh);
+    c.fillStyle=t[3];rr(cx,cy,6,kh,3);c.fill();
+    c.fillStyle=t[3];c.font='800 36px '+SANS;c.fillText(t[1],cx+18,cy+42);
+    c.fillStyle=FMUT;c.font='700 13px '+SANS;
+    c.fillText(t[0].toUpperCase(),cx+18,cy+60);
+    c.fillStyle=FFAINT;c.font='500 12px '+SANS;c.fillText(t[2],cx+18,cy+75);
+  });
+
+  /* Ausências agora */
+  var ay=ky+3*(kh+kg)+26;
+  c.fillStyle=FBRAND;dot(c,x0+6,ay-6,4,FBRAND);
+  c.fillStyle=FTXT;c.font='700 19px '+SANS;c.fillText("Ausências agora",x0+18,ay);
+  c.textAlign="right";c.fillStyle=FFAINT;c.font='600 13px '+SANS;
+  c.fillText(FRT.gente.length+" colaboradores",x0+colw,ay);c.textAlign="left";
+  var ry=ay+12, rh=50;
+  FRT.gente.forEach(function(g,i){
+    var yy=ry+i*(rh+6);
+    card(x0,yy,colw,rh,FPAN2);
+    c.fillStyle=g[4];rr(x0,yy,5,rh,3);c.fill();
+    dot(c,x0+26,yy+rh/2,7,g[4]);
+    c.fillStyle=FTXT;c.font='700 18px '+SANS;c.fillText(g[0],x0+44,yy+23);
+    c.fillStyle=FFAINT;c.font='500 13px '+SANS;
+    c.fillText(g[1]+" · "+g[2],x0+44,yy+41);
+    c.textAlign="right";
+    c.fillStyle=g[4];c.font='700 14px '+SANS;c.fillText(g[3],x0+colw-16,yy+30);
+    c.textAlign="left";
+  });
+
+  /* Frota — veículos */
+  var fy=ry+FRT.gente.length*(rh+6)+30;
+  c.fillStyle=FTXT;c.font='700 19px '+SANS;c.fillText("Frota — veículos",x0+18,fy);
+  dot(c,x0+6,fy-6,4,"#2dd4bf");
+  c.textAlign="right";c.fillStyle=FFAINT;c.font='600 13px '+SANS;
+  c.fillText("4 no pátio",x0+colw,fy);c.textAlign="left";
+  var vy=fy+12, vh=46;
+  var VER={livre:["LIVRE","#22c55e"],uso:["EM USO","#f59e0b"],manut:["MANUT.","#ef4444"]};
+  FRT.frota.forEach(function(v,i){
+    var yy=vy+i*(vh+6);
+    card(x0,yy,colw,vh,FPAN2);
+    c.fillStyle=v[4];rr(x0,yy,5,vh,3);c.fill();
+    // placa em mono, num selo
+    c.fillStyle="#0a1020";rr(x0+14,yy+10,124,26,7);c.fill();
+    c.strokeStyle=FLINE;c.lineWidth=1;rr(x0+14,yy+10,124,26,7);c.stroke();
+    c.fillStyle=FTXT;c.font='700 17px "IBM Plex Mono",ui-monospace,monospace';
+    c.fillText(v[0],x0+23,yy+29);
+    c.fillStyle=FMUT;c.font='500 13px '+SANS;c.fillText(v[3],x0+150,yy+21);
+    c.fillStyle=FFAINT;c.font='500 12px '+SANS;
+    c.fillText(v[2]==="—"?"sem condutor":"cond. "+v[2],x0+150,yy+38);
+    var st=VER[v[1]];
+    c.textAlign="right";
+    c.fillStyle=st[1];c.font='800 14px '+SANS;c.fillText(st[0],x0+colw-14,yy+vh/2+5);
+    c.textAlign="left";
+  });
+
+  /* rodapé — leitor de crachá, logo abaixo dos veículos */
+  var gy=Math.min(CH-64, vy+FRT.frota.length*(vh+6)-6+22);
+  card(x0,gy,colw,54,FPAN);
+  var pulso=0.5+0.5*Math.sin(FRT.t*4);
+  dot(c,x0+24,gy+27,7,"rgba("+Math.round(59+120*pulso)+",130,246,1)");
+  c.fillStyle=FTXT;c.font='700 15px '+SANS;
+  c.fillText("Passe o crachá no leitor",x0+40,gy+27);
+  c.fillStyle=FFAINT;c.font='500 13px '+SANS;
+  c.fillText("saída de carro · registra condutor e retorno",x0+40,gy+45);
+}
+function texFrota(){
+  FRT.cv=document.createElement("canvas");
+  FRT.cv.width=FRT.w;FRT.cv.height=FRT.h;
+  FRT.ctx=FRT.cv.getContext("2d");
+  drawFrota(FRT.ctx);
+  return FRT.cv;
+}
+function tickFrota(dt){
+  FRT.t+=dt; FRT.tq+=dt;
+  var dx=cam.x-FROTA_POS[0], dz=cam.z-FROTA_POS[2];
+  var perto=(dx*dx+dz*dz)<36;
+  if(FRT.tq < (perto?0.12:0.7)) return;
+  FRT.tq=0;
+  drawFrota(FRT.ctx);
+  FRT.dirty=true;
+}
+var FROTA_POS=[0,1.3,0];
+
 function drawScreen(){
   var c=SCR.ctx;
   [drawAndon,drawFerias,drawEstoque][SCR.ch](c);
@@ -2316,6 +2466,8 @@ function station(side,z,idx){
   if(epi){ estacaoEpi(X,z,tw,px); tvParede(side,z-.30,"epi"); return; }
   var pdi=(side<0&&idx===0);            // a bancada da direita, perto da entrada
   if(pdi){ estacaoPdi(X,z,tw,side); tvParede(side,z-.30,"pdi"); return; }
+  var frt=(side>0&&idx===1);           // a bancada da esquerda, do meio da sala
+  if(frt){ estacaoFrota(X,z,side); tvParede(side,z-.30,"frota"); return; }
 
   // apertadeira controlada pendurada no braço, sobre o gabarito
   box({x:px-side*.5,y:.86,z:z-.42,w:.07,h:.13,d:.07,tex:"white",color:0x1b1f23,spec:.5});
@@ -2488,6 +2640,26 @@ function estacaoPdi(X,z,tw,side){
 }
 
 /* TV de parede sobre a bancada — mostra o mesmo canal do telão do fundo */
+/* totem retrato em cima da bancada, virado para o corredor */
+function estacaoFrota(X,z,side){
+  FROTA_POS=[X,1.3,z];
+  var y0=.825;
+  box({x:X,y:y0,z:z,w:.34,h:.02,d:.36,tex:"white",color:0x20262f,spec:.4});
+  box({x:X,y:y0+.02,z:z,w:.14,h:.20,d:.30,tex:"white",color:0x151a22,spec:.4});
+  var yb=y0+.22, ht=.86, wZ=.50;
+  box({x:X,y:yb,z:z,w:.055,h:ht,d:wZ+.05,tex:"white",color:0x0b0f16,spec:.4});
+  box({x:X,y:yb,z:z,w:.058,h:.05,d:wZ+.05,tex:"white",color:0x3b82f6,emissive:0x1e46a0,emi:.5,spec:.3});
+  var sx=X-.030, uL=0.3594, uR=0.6406, zt=wZ/2-.01, ya=yb+.03, yc=yb+ht-.03;
+  plane({tex:"frota",uv:1,color:0xffffff,spec:.02,n:[-1,0,0],
+    pts:[[sx,ya,z-zt],[sx,ya,z+zt],[sx,yc,z+zt],[sx,yc,z-zt]],
+    uvs:[[uL,0],[uR,0],[uR,1],[uL,1]]});
+  GLOWS.push({x:sx-.10,y:yb+ht/2,z:z,s:.42,c:[.42,.55,.85],a:.12});
+  box({x:X-side*.24,y:y0,z:z+.02,w:.10,h:.05,d:.14,rotY:side*.35,tex:"white",color:0x1a1f27,spec:.4});
+  box({x:X-side*.235,y:y0+.05,z:z+.02,w:.012,h:.03,d:.05,rotY:side*.35,tex:"white",
+       color:0x3b82f6,emissive:0x3b82f6,emi:.7});
+  addBlocker(X-.45,X+.45,z-.5,z+.5);
+}
+
 function tvParede(side,zc,tex){
   var w=1.22, h=0.61, y0=1.34, X=side*(RW-0.085);
   var z0=zc-w/2, z1=zc+w/2;
@@ -2647,8 +2819,9 @@ buildRoom();
 var TEXES={carpet:makeTex(texCarpet()),panel:makeTex(texPanel()),window:makeTex(texWindow()),
            ceil:makeTex(texCeil()),white:makeTex(texWhite()),wall:makeTex(texWall()),
            screen:makeTex(texScreen()), visao:makeTex(texVisao()),
-           epi:makeTex(texEpi()), pdi:makeTex(texPdi()), tab:makeTex(texTablet())};
-SCR.tex=TEXES.screen; VIS.tex=TEXES.visao; EPI.tex=TEXES.epi; PDI.tex=TEXES.pdi;
+           epi:makeTex(texEpi()), pdi:makeTex(texPdi()), tab:makeTex(texTablet()),
+           frota:makeTex(texFrota())};
+SCR.tex=TEXES.screen; VIS.tex=TEXES.visao; EPI.tex=TEXES.epi; PDI.tex=TEXES.pdi; FRT.tex=TEXES.frota;
 GATE.buf=gl.createBuffer(); BAL.buf=gl.createBuffer();
 
 /* buffer único, desenhado em faixas por textura */
@@ -2656,7 +2829,7 @@ var STRIDE=15, batches=[], all=[];
 Object.keys(GROUPS).forEach(function(k){
   var arr=GROUPS[k];
   batches.push({tex:TEXES[k]||TEXES.white, start:all.length/STRIDE, count:arr.length/STRIDE,
-                self:(k==="screen"||k==="visao"||k==="epi"||k==="pdi")?2.45:
+                self:(k==="screen"||k==="visao"||k==="epi"||k==="pdi"||k==="frota")?2.45:
                      (k==="tab"?2.15:0)});
   for(var i=0;i<arr.length;i++) all.push(arr[i]);
 });
@@ -2719,7 +2892,9 @@ var STOPS=[
    d:"Liberação de acesso ao forno fusor: o portão só destrava com todos os EPIs reconhecidos."},
   {n:"Checklist",      k:"06", x:0.72, y:EYE,z:-4.30, yaw:-1.10,  pitch:-0.04,
    d:"Checklist aberto no tablet e, na TV, a célula com dois robôs girando o motor montado."},
-  {n:"Telão",          k:"07", x:0,    y:EYE,z:5.40,  yaw:0,      pitch:-0.04,
+  {n:"Ausências & frota", k:"07", x:0.55, y:EYE,z:1.2, yaw:1.5708, pitch:-0.05,
+   d:"Totem de bancada com o gerenciamento de ausências e das saídas com carro da frota."},
+  {n:"Telão",          k:"08", x:0,    y:EYE,z:5.40,  yaw:0,      pitch:-0.04,
    d:"Telão do departamento: andon das células, painel de férias e gestão de estoque."}
 ];
 /* tour guiado: a sala se apresenta sozinha, sem ninguém tocar em nada */
@@ -2866,7 +3041,7 @@ var CODES={KeyW:"w",KeyA:"a",KeyS:"s",KeyD:"d",ArrowUp:"w",ArrowLeft:"a",ArrowDo
 addEventListener("keydown",function(e){
   if(CODES[e.code]){keys[CODES[e.code]]=true;glide=null;e.preventDefault();}
   if(e.code==="ShiftLeft"||e.code==="ShiftRight")keys.shift=true;
-  if(e.code>="Digit1"&&e.code<="Digit7"){var n=+e.code.slice(5)-1;if(STOPS[n])goTo(n);}
+  if(e.code>="Digit1"&&e.code<="Digit8"){var n=+e.code.slice(5)-1;if(STOPS[n])goTo(n);}
 });
 addEventListener("keyup",function(e){
   if(CODES[e.code])keys[CODES[e.code]]=false;
@@ -3169,7 +3344,7 @@ function frame(now){
   var dt=Math.min(.05,(now-last)/1000);last=now;
   tourTick(dt);
   balTick(dt);
-  step(dt); tickScreen(dt); tickVisao(dt); tickEpi(dt); tickGate(dt); tickPdi(dt);
+  step(dt); tickScreen(dt); tickVisao(dt); tickEpi(dt); tickGate(dt); tickPdi(dt); tickFrota(dt);
   if(SCR.dirty){                                    // sobe o painel redesenhado
     gl.bindTexture(gl.TEXTURE_2D,SCR.tex);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,SCR.cv);
@@ -3193,6 +3368,12 @@ function frame(now){
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,PDI.cv);
     gl.generateMipmap(gl.TEXTURE_2D);
     PDI.dirty=false;
+  }
+  if(FRT.dirty){                                    // e o totem de ausências/frota
+    gl.bindTexture(gl.TEXTURE_2D,FRT.tex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,FRT.cv);
+    gl.generateMipmap(gl.TEXTURE_2D);
+    FRT.dirty=false;
   }
 
   ASP=W/H;
@@ -3230,6 +3411,7 @@ window.__D={cam:cam,batches:batches,tris:TRIS,lights:LIGHTS,glows:GLOWS,stations
             epi:function(){return EPI.cv.toDataURL();},
             pdi:function(){return PDI.cv.toDataURL();},
             tab:function(){return TAB.cv.toDataURL();},
+            frota:function(){return FRT.cv.toDataURL();},
             fase:function(f,i){EPI.fase=f;EPI.t=0;EPI.faltando=(i===undefined?null:i);
               GATE.alvo=(f==='liberado')?-1.15:0;drawEpi(EPI.ctx);EPI.dirty=true;},
             set:function(o){glide=null;for(var k in o)cam[k]=o[k];}};

@@ -72,6 +72,20 @@ lê, libera ou bloqueia — e cerca de uma tentativa em quatro é barrada.
 A folha do portão é a única geometria viva da cena: ela é regerada a cada quadro
 no ângulo atual e enviada num buffer próprio, separado do buffer estático.
 
+## O totem de ausências e frota
+
+A quarta bancada — antes sem tema próprio — recebe um **totem em retrato** em cima
+da mesa, virado para o corredor, com o painel **Gerenciamento de ausências e
+saídas com carro da frota** (Powertrain · ETG). Ele reproduz o monitor enviado
+pelo cliente: KPIs (ausentes agora, presença, saídas de hoje, em férias, em
+viagem, retornos em 7 dias), a lista de **ausências agora** (colaborador, setor,
+motivo e retorno) e a **frota de veículos** (placa, status Livre/Em uso/Manutenção
+e condutor), com o leitor de crachá no rodapé para registrar a saída do carro.
+
+O painel é desenhado em um canvas landscape (2048×1024) com a coluna retrato ao
+centro; o totem recorta essa coluna, e o telão de parede acima vê o mesmo painel
+pillarboxed. É a parada **07 · Ausências & frota**.
+
 ## A célula de PDI e o tablet do CheckSync
 
 A quarta bancada é a da inspeção de PDI. Sobre a mesa há um tablet numa base
