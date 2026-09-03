@@ -2,7 +2,7 @@
 
 Reconstrução 3D navegável da sala de apresentação dos temas de inovação do
 powertrain, remontada a partir de uma única fotografia tirada do mezanino. No
-fundo da sala há um telão de projeção de 3,3 m que alterna os painéis do
+fundo da sala há um telão de projeção de 2,1 m que alterna os painéis do
 departamento, e uma TV de parede sobre cada bancada repetindo o mesmo canal.
 
 `index.html` é autossuficiente: um único arquivo, sem dependências, sem CDN de
@@ -233,6 +233,6 @@ aditivo para os halos das luminárias e do arco.
 - **Colisão** por círculo contra caixas alinhadas: bancadas, guarda-corpo, móveis
   e o vão do mezanino, que não pode ser atravessado.
 
-Medidas do módulo: 19,0 × 4,4 m, pé-direito 2,75 m, 4 bancadas (duas de cada
-lado), TVs de 1,22 × 0,61 m sobre elas, telão de 3,3 × 1,64 m e altura do olhar
+Medidas do módulo: 16,0 × 2,60 m, pé-direito 2,75 m, 4 bancadas (duas de cada
+lado), TVs de 1,22 × 0,61 m sobre elas, telão de 2,1 × 1,64 m e altura do olhar
 1,62 m.
