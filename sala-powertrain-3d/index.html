@@ -305,11 +305,10 @@
       <p>Sala de apresentação dos temas de inovação do powertrain, em primeira pessoa. O módulo em contêiner foi remontado a partir de uma única fotografia tirada do mezanino.</p>
       <ul>
         <li><b>Telão de 3,3 m</b> no fundo, alternando três canais: andon das células, Painel Gerencial de Férias e Gestão de Estoque | Powertrain</li>
-        <li><b>4 bancadas</b>, duas de cada lado, cada uma com uma <b>TV de parede</b> repetindo o canal do telão</li>
-        <li><b>Estação de visão computacional</b>: bloco de alumínio de 4 cilindros sob uma câmera Intelbras com anel de luz — a TV logo acima mostra o frontend do sistema, com a imagem da câmera e o laudo da peça</li>
+        <li><b>3 bancadas à esquerda</b> — visão de qualidade, segurança e checklist; o lado direito fica livre</li>
+        <li><b>TV central</b> entre as duas primeiras bancadas, alternando as soluções de visão do bloco, de EPI e do checklist</li>
         <li><b>Liberação de acesso por EPI</b>: câmera comum olhando quem chega no portão da fusão; o portãozinho da bancada só destrava quando todos os EPIs são reconhecidos</li>
         <li><b>Célula de PDI</b>: tablet com o CheckSync ETG aberto na nova inspeção, e na TV acima dois robôs inspecionando um motor montado que gira em vista 3D, com o checklist andando junto</li>
-        <li><b>Totem de bancada</b>: gerenciamento de ausências e das saídas com carro da frota, apresentado em retrato</li>
         <li><b>Balizas e tour guiado</b>: as sete paradas aparecem como marcos flutuantes — toque ou clique num deles para ir até lá; o tour percorre todos sozinho, com legenda</li>
         <li><b>Vão do mezanino</b> com guarda-corpo tubular e escada para o piso inferior</li>
         <li><b>Faixa de LED</b> em espinha de peixe no teto laqueado, entre as janelas contínuas</li>
@@ -330,13 +329,13 @@
         <div class="rulebar"></div>
         <div class="eyebrow">Percurso imersivo em primeira pessoa</div>
         <h2>Entre na sala de inovação</h2>
-        <p>Ande pelo corredor central, passe pela estação de visão que inspeciona o bloco de motor, olhe as TVs de parede e siga até o telão do fundo, que passa os painéis do departamento.</p>
+        <p>Ande pelo corredor central, passe pelas estações de visão de qualidade e segurança, veja a TV central alternando as soluções e siga até o telão do fundo, que passa os painéis do departamento.</p>
         <p style="font-size:13.5px">No celular, <b>arraste para olhar</b>, use o <b>manche no canto esquerdo</b> para andar e <b>toque numa baliza</b> para ir direto até ela. No computador, mouse para olhar e <b>W A S D</b> para os passos. A sala abre em tela cheia.</p>
         <button id="enter">Entrar na sala</button>
         <div id="gatespec">
           <div><b>19,0 m</b><span>Comprimento</span></div>
           <div><b>4,4 m</b><span>Largura</span></div>
-          <div><b>4</b><span>Bancadas</span></div>
+          <div><b>3</b><span>Bancadas</span></div>
           <div><b>3,3 m</b><span>Telão</span></div>
         </div>
       </div>
@@ -2090,6 +2089,43 @@ function tickFrota(dt){
 }
 var FROTA_POS=[0,1.3,0];
 
+/* ---------- TV central: alterna as três soluções (visão-bloco, EPI, checklist) ---------- */
+var MID={cv:null,ctx:null,tex:null,dirty:true,t:0,tq:0,ch:0,dur:6.5,pos:[1.5,1.6,-2.3],
+  nomes:["Visão · inspeção do bloco","Liberação por EPI","Checklist · célula de PDI"]};
+function drawMid(){
+  var c=MID.ctx, W=2048, H=1024;
+  var src=[VIS.cv,EPI.cv,PDI.cv][MID.ch];
+  c.fillStyle="#05080b";c.fillRect(0,0,W,H);
+  if(src) c.drawImage(src,0,0,W,H);
+  // faixa superior indicando o rodízio de soluções
+  c.fillStyle="rgba(6,10,16,.82)";c.fillRect(0,0,W,64);
+  c.fillStyle="#ff5a2b";c.fillRect(0,0,8,64);
+  c.textAlign="left";c.textBaseline="middle";
+  c.fillStyle="#eef2f4";c.font='700 30px '+SANS;
+  c.fillText("SOLUÇÕES · "+MID.nomes[MID.ch].toUpperCase(),34,33);
+  c.textAlign="right";c.fillStyle="#93a0aa";c.font='500 24px '+SANS;
+  c.fillText((MID.ch+1)+" / 3  ·  alterna a cada "+Math.round(MID.dur)+" s",W-28,33);
+  // pontinhos do carrossel
+  for(var i=0;i<3;i++){
+    c.beginPath();c.arc(W/2-26+i*26,52,6,0,7);
+    c.fillStyle=(i===MID.ch)?"#ff5a2b":"rgba(147,160,170,.5)";c.fill();
+  }
+  c.textAlign="left";c.textBaseline="alphabetic";
+}
+function texMid(){
+  MID.cv=document.createElement("canvas");MID.cv.width=2048;MID.cv.height=1024;
+  MID.ctx=MID.cv.getContext("2d");
+  drawMid();return MID.cv;
+}
+function tickMid(dt){
+  MID.t+=dt;MID.tq+=dt;
+  if(MID.t>MID.dur){ MID.t=0; MID.ch=(MID.ch+1)%3; }
+  var dx=cam.x-MID.pos[0], dz=cam.z-MID.pos[2];
+  var perto=(dx*dx+dz*dz)<64;
+  if(MID.tq < (perto?0.12:0.8)) return;
+  MID.tq=0; drawMid(); MID.dirty=true;
+}
+
 function drawScreen(){
   var c=SCR.ctx;
   [drawAndon,drawFerias,drawEstoque][SCR.ch](c);
@@ -2369,10 +2405,17 @@ function buildRoom(){
       GLOWS.push({x:x+sn*t*len, y:RH-.10, z:z+cs*t*len, s:.48, c:[1,.93,.8], a:.20});
     }
   }
-  [-1.46,1.46].forEach(function(x){ led(x,0,RL*2-.6,0); });
-  var zz=-8.5, flip=1;
-  while(zz<1.4){ led(0,zz,2.05,flip*0.52); zz+=1.62; flip*=-1; }        // espinha de peixe
-  for(var z2=2.3; z2<RL-.4; z2+=1.5){ led(0,z2,2.3,Math.PI/2); }        // travessas ao fundo
+  // faixa grafite glossy no centro do teto (como nas fotos)
+  box({x:0,y:RH-.004,z:0,w:1.5,h:.012,d:RL*2-.4,tex:"white",color:0x0c0e11,spec:.95});
+  // dois LEDs lineares contínuos, junto às laterais
+  [-1.66,1.66].forEach(function(x){ led(x,0,RL*2-.6,0); });
+  // downlights embutidos ao longo do teto
+  for(var dz=-RL+1.0; dz<RL-0.4; dz+=1.35){
+    [-0.95,0.95].forEach(function(dx){
+      box({x:dx,y:RH-.02,z:dz,w:.14,h:.02,d:.14,tex:"white",color:0xfff4e0,emissive:0xfff0d8,emi:1.0,spec:.1});
+      GLOWS.push({x:dx,y:RH-.07,z:dz,s:.22,c:[1,.94,.82],a:.13});
+    });
+  }
 
   /* --- lâmpadas de cena (pontuais) --- */
   for(var lz=-8.4; lz<RL; lz+=2.6){
@@ -2382,12 +2425,11 @@ function buildRoom(){
   /* --- guarda-corpo do mezanino + escada --- */
   buildStairs();
 
-  /* --- bancadas --- */
-  var zs=[-3.4,1.2];                       // duas de cada lado
-  zs.forEach(function(z,i){
-    station(-1,z,i);
-    station(1,z,i);
-  });
+  /* --- bancadas: três à esquerda; lado direito livre --- */
+  station(1, -3.4, "visao", null);         // 04 · Visão de qualidade
+  station(1, -1.2, "epi",   null);         // 05 · Segurança
+  tvParede(1, -2.3, "mid");                // 06 · TV central alterna as soluções
+  station(1,  2.8, "pdi",  "pdi");         // 07 · Checklist (≈4 m à frente)
 
   /* --- fundo: carrinho de máscaras, armário, cilindros de gás --- */
   farEnd();
@@ -2433,61 +2475,26 @@ function buildStairs(){
   GLOWS.push({x:cx+.15, y:-depth+.8, z:-RL+.05, s:1.5, c:[1,.32,.2], a:.20});
 }
 
-function station(side,z,idx){
-  var X=side*1.5;
-  var topY=.78, tw=.72, td=1.24;                     // largura (X) x profundidade (Z)
+function station(side,z,theme,tv){
+  var X=side*1.5, topY=.78, tw=.72, td=1.24;
   STATIONS.push({x:X,z:z,side:side});
-
-  // tampo de inox e prateleira
-  box({x:X,y:topY,z:z,w:tw,h:.045,d:td,tex:"white",color:0x939a9e,spec:.75});
-  box({x:X,y:.22,z:z,w:tw-.06,h:.035,d:td-.08,tex:"white",color:0x8a9297,spec:.4});
-  // estrutura tubular
+  // mesa preta simples (como nas fotos)
+  box({x:X,y:topY,z:z,w:tw,h:.045,d:td,tex:"white",color:0x16191d,spec:.35});
+  box({x:X,y:.30,z:z,w:tw-.06,h:.035,d:td-.08,tex:"white",color:0x121417,spec:.3});
   [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(c){
-    box({x:X+c[0]*(tw/2-.045),y:.09,z:z+c[1]*(td/2-.05),w:.05,h:.7,d:.05,tex:"white",color:0x24282c,spec:.3});
-    cyl({x:X+c[0]*(tw/2-.045),y:.02,z:z+c[1]*(td/2-.05),r:.045,h:.07,seg:8,tex:"white",color:0x121417,spec:.3});
+    box({x:X+c[0]*(tw/2-.045),y:.02,z:z+c[1]*(td/2-.05),w:.045,h:.76,d:.045,tex:"white",color:0x0f1114,spec:.3});
   });
-  // unidade de controle na prateleira
-  box({x:X,y:.255,z:z,w:tw-.16,h:.36,d:.66,tex:"white",color:0x1e2226,spec:.35});
-  box({x:X-side*((tw-.155)/2),y:.30,z:z,w:.035,h:.19,d:.58,tex:"white",color:0x8c2317,spec:.3});
-  box({x:X,y:.598,z:z,w:tw-.155,h:.022,d:.58,tex:"white",color:0x8c2317,spec:.3});
-  box({x:X-side*(tw/2-.08),y:.40,z:z+.16,w:.03,h:.04,d:.04,tex:"white",color:0xff6a3a,emissive:0xff5a2b,emi:.9});
-  torus({x:X,y:.24,z:z-side*.02,R:.19,r:.032,segU:16,segV:6,squash:.5,tex:"white",color:0x111316});
-
-  // poste vertical junto à parede + braço articulado
   var px=X+side*(tw/2+.08);
-  box({x:px,y:0,z:z-.42,w:.07,h:1.72,d:.07,tex:"white",color:0x15181b,spec:.4});
-  box({x:px-side*.28,y:1.42,z:z-.42,w:.58,h:.055,d:.055,tex:"white",color:0x15181b,spec:.4});
-  box({x:px-side*.5,y:1.06,z:z-.42,w:.05,h:.38,d:.05,tex:"white",color:0x15181b,spec:.4});
-  box({x:px-side*.5,y:.99,z:z-.42,w:.13,h:.09,d:.13,tex:"white",color:0x2c3237,spec:.5});
-
-  var visao=(side<0&&idx===1);          // a bancada da direita, do meio da sala
-  if(visao){ estacaoVisao(X,z,tw,td,px); tvParede(side,z-.34,"visao"); return; }
-  var epi=(side>0&&idx===0);            // a bancada da esquerda, perto da entrada
-  if(epi){ estacaoEpi(X,z,tw,px); tvParede(side,z-.30,"epi"); return; }
-  var pdi=(side<0&&idx===0);            // a bancada da direita, perto da entrada
-  if(pdi){ estacaoPdi(X,z,tw,side); tvParede(side,z-.30,"pdi"); return; }
-  var frt=(side>0&&idx===1);           // a bancada da esquerda, do meio da sala
-  if(frt){ estacaoFrota(X,z,side); tvParede(side,z-.30,"frota"); return; }
-
-  // apertadeira controlada pendurada no braço, sobre o gabarito
-  box({x:px-side*.5,y:.86,z:z-.42,w:.07,h:.13,d:.07,tex:"white",color:0x1b1f23,spec:.5});
-  cyl({x:px-side*.5,y:.828,z:z-.42,r:.022,h:.04,seg:8,tex:"white",color:0x8d959b,spec:.7});
-  box({x:X-side*.10,y:.825,z:z+.32,w:.30,h:.05,d:.34,rotY:side*.2,tex:"white",color:0x3a4147,spec:.5});
-  box({x:X-side*.10,y:.875,z:z+.32,w:.20,h:.10,d:.22,rotY:side*.2,tex:"white",color:0x9aa1a6,spec:.55});
-
-  // monitor inclinado ou pilha de papel
-  if(idx%2===0){
-    box({x:X-side*.16,y:.825,z:z-.3,w:.05,h:.30,d:.36,rotY:side*.22,tex:"white",color:0x101214,spec:.4});
-    box({x:X-side*.19,y:.845,z:z-.3,w:.012,h:.26,d:.32,rotY:side*.22,tex:"white",color:0x1c2a33,
-         emissive:0x2a4c60,emi:.5,spec:.2});
-  }else{
-    box({x:X-side*.15,y:.823,z:z-.28,w:.28,h:.035,d:.34,rotY:side*.1,tex:"white",color:0xecebe6,spec:.1});
-    box({x:X-side*.15,y:.858,z:z-.3,w:.24,h:.02,d:.3,rotY:side*.24,tex:"white",color:0xd8d5cd,spec:.1});
+  if(theme==="visao"||theme==="epi"){          // poste + braço articulado da câmera
+    box({x:px,y:0,z:z-.42,w:.07,h:1.72,d:.07,tex:"white",color:0x15181b,spec:.4});
+    box({x:px-side*.28,y:1.42,z:z-.42,w:.58,h:.055,d:.055,tex:"white",color:0x15181b,spec:.4});
+    box({x:px-side*.5,y:1.06,z:z-.42,w:.05,h:.38,d:.05,tex:"white",color:0x15181b,spec:.4});
+    box({x:px-side*.5,y:.99,z:z-.42,w:.13,h:.09,d:.13,tex:"white",color:0x2c3237,spec:.5});
   }
-  tvParede(side, z+.10);
-
-  // bancada bloqueia o caminho
-  addBlocker(X-tw/2-.12, X+tw/2+.12, z-td/2-.12, z+td/2+.12);
+  if(theme==="visao") estacaoVisao(X,z,tw,td,px);
+  else if(theme==="epi") estacaoEpi(X,z,tw,px);
+  else if(theme==="pdi") estacaoPdi(X,z,tw,side);
+  if(tv) tvParede(side,(theme==="pdi"?z-0.30:z),tv);
 }
 
 /* bancada de inspeção por visão: bloco de alumínio, câmera no alto e o CLP */
@@ -2675,30 +2682,31 @@ function tvParede(side,zc,tex){
 }
 
 function farEnd(){
-  // carrinho de apoio, encostado na lateral para não cobrir o telão
-  var cz=RL-2.1, cxo=-1.45;
-  box({x:cxo,y:.74,z:cz,w:.9,h:.04,d:.5,tex:"white",color:0x9fa6ab,spec:.6});
-  box({x:cxo,y:.30,z:cz,w:.84,h:.035,d:.46,tex:"white",color:0x7b8388,spec:.4});
-  [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(function(c){
-    box({x:cxo+c[0]*.4,y:.06,z:cz+c[1]*.2,w:.04,h:.7,d:.04,tex:"white",color:0x22262a,spec:.3});
+  var RED=0xC01F22, REDd=0x8f1418;
+  // --- colunas vermelhas (portal), como nas fotos ---
+  [-1,1].forEach(function(s){
+    var x=s*(RW-0.26);
+    box({x:x,y:0,z:4.6,w:.52,h:RH,d:.62,tex:"white",color:RED,spec:.35});
+    box({x:x,y:0,z:4.6,w:.53,h:RH,d:.03,tex:"white",color:REDd,spec:.2}); // quina frontal
+    addBlocker(x-0.3,x+0.3,4.6-0.35,4.6+0.35);
   });
-  [-.28,0,.28].forEach(function(dx,i){
-    box({x:cxo+dx,y:.78,z:cz,w:.24,h:.26,d:.22,rotY:.2*i,tex:"white",color:i===1?0x8f2018:0x1a1d21,spec:.5});
+  // --- flancos vermelhos ladeando o telão, na parede do fundo ---
+  [-1,1].forEach(function(s){
+    var x=s*1.9;
+    box({x:x,y:0,z:RL-0.06,w:.6,h:RH,d:.06,tex:"white",color:RED,spec:.3});
   });
-  box({x:cxo-.2,y:.335,z:cz,w:.3,h:.16,d:.24,tex:"white",color:0xe9e7e0,spec:.1});
-  box({x:cxo+.22,y:.335,z:cz,w:.26,h:.14,d:.2,tex:"white",color:0xe9e7e0,spec:.1});
-
-  // armário e cilindros recuam para as laterais, fora do campo do telão
-  box({x:1.76,y:0,z:RL-2.6,w:.78,h:1.9,d:.55,tex:"white",color:0x272c31,spec:.3});
-  box({x:1.76,y:1.9,z:RL-2.6,w:.82,h:.04,d:.58,tex:"white",color:0x3c4349,spec:.4});
-  [[-1.94,RL-3.3],[-1.62,RL-3.35]].forEach(function(p,i){
-    cyl({x:p[0],y:0,z:p[1],r:.115,h:1.35,seg:12,tex:"white",color:i?0x1d3b2e:0x2a2f34,spec:.55});
-    cyl({x:p[0],y:1.35,z:p[1],r:.05,h:.14,seg:8,tex:"white",color:0x8b9298,spec:.6});
-    addBlocker(p[0]-.2,p[0]+.2,p[1]-.2,p[1]+.2);
-  });
-  addBlocker(1.3,2.2,RL-2.95,RL-2.25);
-  addBlocker(cxo-.6,cxo+.6,cz-.35,cz+.35);
-  addBlocker(-RW,RW,RL-.55,RL);            // ninguém entra na frente da projeção
+  // --- painel perfurado preto sob o telão (quadro de marcadores) ---
+  box({x:0,y:.12,z:RL-0.07,w:1.7,h:.72,d:.05,tex:"white",color:0x0e1013,spec:.2});
+  for(var r=0;r<3;r++)for(var cc=0;cc<7;cc++){
+    box({x:-0.7+cc*0.235,y:.32+r*0.2,z:RL-0.045,w:.03,h:.03,d:.015,tex:"white",
+         color:0xdfe6ee,emissive:0x2a3340,emi:.3,spec:.4});
+  }
+  // --- púlpito de madeira à esquerda, perto do telão ---
+  var pz=RL-1.35, pxo=-1.15;
+  box({x:pxo,y:0,z:pz,w:.5,h:1.10,d:.42,tex:"white",color:0xC7A46A,spec:.25});
+  box({x:pxo,y:1.10,z:pz,w:.56,h:.045,d:.46,tex:"white",color:0xB4915C,spec:.3});
+  box({x:pxo,y:.9,z:pz-.18,w:.4,h:.02,d:.04,tex:"white",color:0x6b5636,spec:.3});
+  addBlocker(pxo-.35,pxo+.35,pz-.3,pz+.3);
 }
 
 /* ============================================================
@@ -2820,8 +2828,8 @@ var TEXES={carpet:makeTex(texCarpet()),panel:makeTex(texPanel()),window:makeTex(
            ceil:makeTex(texCeil()),white:makeTex(texWhite()),wall:makeTex(texWall()),
            screen:makeTex(texScreen()), visao:makeTex(texVisao()),
            epi:makeTex(texEpi()), pdi:makeTex(texPdi()), tab:makeTex(texTablet()),
-           frota:makeTex(texFrota())};
-SCR.tex=TEXES.screen; VIS.tex=TEXES.visao; EPI.tex=TEXES.epi; PDI.tex=TEXES.pdi; FRT.tex=TEXES.frota;
+           frota:makeTex(texFrota()), mid:makeTex(texMid())};
+SCR.tex=TEXES.screen; VIS.tex=TEXES.visao; EPI.tex=TEXES.epi; PDI.tex=TEXES.pdi; FRT.tex=TEXES.frota; MID.tex=TEXES.mid;
 GATE.buf=gl.createBuffer(); BAL.buf=gl.createBuffer();
 
 /* buffer único, desenhado em faixas por textura */
@@ -2829,7 +2837,7 @@ var STRIDE=15, batches=[], all=[];
 Object.keys(GROUPS).forEach(function(k){
   var arr=GROUPS[k];
   batches.push({tex:TEXES[k]||TEXES.white, start:all.length/STRIDE, count:arr.length/STRIDE,
-                self:(k==="screen"||k==="visao"||k==="epi"||k==="pdi"||k==="frota")?2.45:
+                self:(k==="screen"||k==="visao"||k==="epi"||k==="pdi"||k==="frota"||k==="mid")?2.45:
                      (k==="tab"?2.15:0)});
   for(var i=0;i<arr.length;i++) all.push(arr[i]);
 });
@@ -2880,21 +2888,21 @@ var vel={x:0,z:0}, bob=0, keys={};
 var reduce=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 var STOPS=[
-  {n:"Mezanino",       k:"01", x:0.85, y:EYE,z:-9.05, yaw:0,      pitch:-0.12,
-   d:"Do mezanino: 19 metros de sala, quatro bancadas de demonstração e o telão ao fundo."},
-  {n:"Vão da escada",  k:"02", x:0.60, y:EYE,z:-7.40, yaw:-1.05,  pitch:-0.50,
+  {n:"Mezanino",          k:"01", x:0.85, y:EYE,z:-9.05, yaw:0,      pitch:-0.12,
+   d:"Do mezanino: 19 metros de sala, três bancadas à esquerda e o telão ao fundo."},
+  {n:"Vão da escada",     k:"02", x:0.60, y:EYE,z:-7.40, yaw:-1.05,  pitch:-0.50,
    d:"O vão do mezanino, com guarda-corpo tubular e a escada para o piso inferior."},
-  {n:"Corredor",       k:"03", x:0,    y:EYE,z:-4.20, yaw:0,      pitch:-0.03,
-   d:"Corredor central: as quatro bancadas e as TVs de parede, todas ligadas aos painéis."},
-  {n:"Visão · bloco",  k:"04", x:0.92, y:EYE,z:0.30,  yaw:-1.16,  pitch:-0.09,
-   d:"Inspeção do bloco de quatro cilindros por visão: câmera no alto, anel de luz e laudo na TV."},
-  {n:"Portão · EPI",   k:"05", x:-0.85,y:EYE,z:-4.15, yaw:1.16,   pitch:-0.06,
-   d:"Liberação de acesso ao forno fusor: o portão só destrava com todos os EPIs reconhecidos."},
-  {n:"Checklist",      k:"06", x:0.72, y:EYE,z:-4.30, yaw:-1.10,  pitch:-0.04,
-   d:"Checklist aberto no tablet e, na TV, a célula com dois robôs girando o motor montado."},
-  {n:"Ausências & frota", k:"07", x:0.55, y:EYE,z:1.2, yaw:1.5708, pitch:-0.05,
-   d:"Totem de bancada com o gerenciamento de ausências e das saídas com carro da frota."},
-  {n:"Telão",          k:"08", x:0,    y:EYE,z:5.40,  yaw:0,      pitch:-0.04,
+  {n:"Corredor",          k:"03", x:0,    y:EYE,z:-5.20, yaw:0,      pitch:-0.02,
+   d:"Corredor central: as três estações à esquerda, as colunas vermelhas e o telão ao fundo."},
+  {n:"Visão de qualidade",k:"04", x:-0.45,y:EYE,z:-3.40, yaw:1.5708, pitch:-0.06,
+   d:"Inspeção do bloco de quatro cilindros por visão: câmera no alto e anel de luz."},
+  {n:"Segurança",         k:"05", x:-0.45,y:EYE,z:-1.20, yaw:1.5708, pitch:-0.06,
+   d:"Liberação de acesso por EPI: o portão só destrava com todos os EPIs reconhecidos."},
+  {n:"Soluções · TV",     k:"06", x:-0.70,y:EYE,z:-2.30, yaw:1.5708, pitch:0.06,
+   d:"TV central entre as duas bancadas, alternando as soluções de visão, EPI e checklist."},
+  {n:"Checklist",         k:"07", x:-0.45,y:EYE,z:2.80,  yaw:1.5708, pitch:-0.04,
+   d:"Tablet com o CheckSync e, na TV, a célula com dois robôs girando o motor montado."},
+  {n:"Telão",             k:"08", x:0,    y:EYE,z:5.40,  yaw:0,      pitch:-0.03,
    d:"Telão do departamento: andon das células, painel de férias e gestão de estoque."}
 ];
 /* tour guiado: a sala se apresenta sozinha, sem ninguém tocar em nada */
@@ -3344,7 +3352,7 @@ function frame(now){
   var dt=Math.min(.05,(now-last)/1000);last=now;
   tourTick(dt);
   balTick(dt);
-  step(dt); tickScreen(dt); tickVisao(dt); tickEpi(dt); tickGate(dt); tickPdi(dt); tickFrota(dt);
+  step(dt); tickScreen(dt); tickVisao(dt); tickEpi(dt); tickGate(dt); tickPdi(dt); tickMid(dt);
   if(SCR.dirty){                                    // sobe o painel redesenhado
     gl.bindTexture(gl.TEXTURE_2D,SCR.tex);
     gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,SCR.cv);
@@ -3369,11 +3377,11 @@ function frame(now){
     gl.generateMipmap(gl.TEXTURE_2D);
     PDI.dirty=false;
   }
-  if(FRT.dirty){                                    // e o totem de ausências/frota
-    gl.bindTexture(gl.TEXTURE_2D,FRT.tex);
-    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,FRT.cv);
+  if(MID.dirty){                                    // e a TV central que alterna soluções
+    gl.bindTexture(gl.TEXTURE_2D,MID.tex);
+    gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,MID.cv);
     gl.generateMipmap(gl.TEXTURE_2D);
-    FRT.dirty=false;
+    MID.dirty=false;
   }
 
   ASP=W/H;

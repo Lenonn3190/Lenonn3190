@@ -108,6 +108,23 @@ de textura à toa.
 **Comparar foto** sobrepõe a fotografia original ao render, na mesma posição de
 câmera e no mesmo campo de visão em que ela foi tirada.
 
+## Layout da sala (revisado)
+
+As três bancadas ficam **do lado esquerdo**; o lado direito fica livre e o **telão
+ao fundo** é mantido. Ordem, do mezanino para o fundo:
+
+1. **Visão de qualidade** — inspeção do bloco de motor por câmera.
+2. **Segurança** — liberação de acesso por EPI, com portão e trava.
+   As duas primeiras ficam a ~1 m uma da outra; **entre elas há uma TV** que
+   **alterna** as três soluções: visão do bloco, EPI e checklist (a cada ~6,5 s).
+3. **Checklist** — ~4 m à frente: tablet com o CheckSync e a TV da célula de PDI
+   com dois robôs girando o motor montado.
+
+O ambiente foi aproximado das fotos reais: **colunas vermelhas** em portal,
+**flancos vermelhos** ladeando o telão, **púlpito de madeira** e **painel
+perfurado** sob a tela, **teto grafite glossy** ao centro com dois **LEDs
+lineares** laterais e fileiras de **spots** embutidos, e **mesas pretas** simples.
+
 ## Um modo só: tela cheia, no dedo
 
 O botão **Entrar na sala** abre em tela cheia (e trava em paisagem no celular).
