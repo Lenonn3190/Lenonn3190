@@ -1,0 +1,386 @@
+<title>Estoque da Loja</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* Layout: cabeçalho fixo com totais, abas de produto, cartões por produto, barra de ações no rodapé */
+  :root{
+    --bg:#f6f3f7; --card:#ffffff; --ink:#2b2530; --muted:#756b7b; --line:#e7e0ea; --chip:#ffffff;
+    --accent:#c2185b; --accent-ink:#ffffff; --ok:#2e7d32; --ok-bg:#e6f4ea; --warn:#e65100; --bad:#c62828; --bad-bg:#fde7ec;
+    --bar:rgba(246,243,247,.96); --soft:#f1ecf3;
+  }
+  @media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+    --bg:#17131a; --card:#221c26; --ink:#f1ebf4; --muted:#a99fae; --line:#352c3a; --chip:#2a2230;
+    --accent:#d81b60; --accent-ink:#ffffff; --ok:#81c784; --ok-bg:#1e3323; --warn:#ffb74d; --bad:#ef9a9a; --bad-bg:#3b1f26;
+    --bar:rgba(23,19,26,.96); --soft:#2a2230; color-scheme:dark }}
+  :root[data-theme="dark"]{
+    --bg:#17131a; --card:#221c26; --ink:#f1ebf4; --muted:#a99fae; --line:#352c3a; --chip:#2a2230;
+    --accent:#d81b60; --accent-ink:#ffffff; --ok:#81c784; --ok-bg:#1e3323; --warn:#ffb74d; --bad:#ef9a9a; --bad-bg:#3b1f26;
+    --bar:rgba(23,19,26,.96); --soft:#2a2230; color-scheme:dark }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Roboto,sans-serif;font-size:15px}
+  body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--accent)}
+  .pad{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+  header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--accent);color:var(--accent-ink);padding-block:12px 10px}
+  header h1{margin:0;font-size:20px}
+  .totals{display:flex;flex-wrap:wrap;gap:4px 16px;margin-top:4px;font-size:13px}
+  .totals b{font-size:16px;font-variant-numeric:tabular-nums}
+  .status{font-size:12px;opacity:.9;margin-top:2px;min-height:15px}
+  nav{display:flex;gap:6px;padding-block:10px;overflow-x:auto}
+  nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--chip);color:var(--ink);border-radius:20px;padding:8px 14px;font-size:14px}
+  nav button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+  main{padding-block:0 96px;max-width:720px;margin:0 auto}
+  .card{background:var(--card);border-radius:14px;margin:0 0 12px;border:1px solid var(--line);overflow:hidden}
+  .card h2{margin:0;padding:12px 14px;font-size:16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+  .card h2 small{font-weight:600;color:var(--muted);font-size:13px}
+  .row{display:flex;align-items:center;padding:8px 10px 8px 14px;border-bottom:1px solid var(--line);gap:10px}
+  .row:last-child{border-bottom:0}
+  .sw{width:22px;height:22px;border-radius:50%;border:1px solid rgba(128,128,128,.5);flex:0 0 auto}
+  .name{flex:1;min-width:0}
+  .tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:10px;color:#fff;vertical-align:middle;font-weight:600}
+  .tag.zero{background:#c62828} .tag.low{background:#e65100}
+  .btn{width:44px;height:44px;border-radius:12px;border:0;font-size:24px;font-weight:700;line-height:1;flex:0 0 auto}
+  .minus{background:var(--bad-bg);color:var(--bad)} .plus{background:var(--ok-bg);color:var(--ok)}
+  .qty{min-width:52px;text-align:center;font-size:20px;font-weight:700;padding:8px 2px;border:0;background:none;color:var(--ink);font-variant-numeric:tabular-nums;text-decoration:underline dotted var(--line)}
+  .qty.zero{color:var(--bad)} .qty.low{color:var(--warn)}
+  .bar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;padding-block:10px calc(10px + env(safe-area-inset-bottom,0px));background:var(--bar);border-top:1px solid var(--line);z-index:6}
+  .bar button{flex:1;border:1px solid var(--line);border-radius:12px;padding:12px 6px;font-size:14px;font-weight:600;background:var(--card);color:var(--ink)}
+  .bar button.primary{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+  .empty{text-align:center;color:var(--muted);padding:30px 10px}
+  .hist .when{color:var(--muted);font-size:12px}
+  .hist .d{font-weight:700;min-width:44px;text-align:right;font-variant-numeric:tabular-nums}
+  .d.in{color:var(--ok)} .d.out{color:var(--bad)}
+  dialog{border:0;border-radius:16px;padding:18px;width:min(92vw,440px);background:var(--card);color:var(--ink)}
+  dialog::backdrop{background:rgba(0,0,0,.5)}
+  dialog h3{margin:0 0 6px;font-size:18px}
+  dialog p{margin:4px 0 12px;color:var(--muted);font-size:14px}
+  dialog input,dialog textarea{width:100%;font-size:20px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+  dialog textarea{font-size:13px;height:220px;font-family:inherit}
+  .actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .actions button,.actions a{flex:1;border:0;border-radius:10px;padding:12px;font-size:15px;font-weight:600;background:var(--soft);color:var(--ink);text-align:center;text-decoration:none}
+  .actions .primary{background:var(--accent);color:var(--accent-ink)}
+  .actions .wa{background:#25d366;color:#0b2e17}
+  .actions .danger{background:var(--bad-bg);color:var(--bad)}
+  .seg{display:flex;gap:6px;margin-bottom:10px}
+  .seg button{flex:1;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:10px;padding:10px 4px;font-size:14px}
+  .seg button.on{background:var(--ink);color:var(--bg)}
+  .menu button{display:block;width:100%;text-align:left;border:0;background:var(--soft);color:var(--ink);border-radius:10px;padding:14px;margin:6px 0;font-size:15px}
+  .toast{position:fixed;left:50%;bottom:calc(84px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+  .toast.show{opacity:1}
+  button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  @media (prefers-reduced-motion: reduce){ .toast{transition:none} }
+</style>
+
+<header class="pad">
+  <h1>Estoque da Loja</h1>
+  <div class="totals"><span>Total: <b id="tTotal">0</b> peças</span><span>Zerados: <b id="tZero">0</b></span><span>Baixos: <b id="tLow">0</b></span></div>
+  <div class="status" id="status">Carregando estoque…</div>
+</header>
+<nav id="tabs" class="pad"></nav>
+<main id="main" class="pad"></main>
+
+<div class="bar pad">
+  <button class="primary" id="btnReport" type="button">Enviar relatório</button>
+  <button id="btnMenu" type="button">Mais opções</button>
+</div>
+
+<dialog id="dlgQty">
+  <h3 id="qTitle"></h3>
+  <p id="qNow"></p>
+  <div class="seg">
+    <button id="mIn" type="button">Entrada (+)</button>
+    <button id="mOut" type="button">Saída (−)</button>
+    <button id="mSet" type="button">Ajustar total</button>
+  </div>
+  <input id="qInput" type="number" inputmode="numeric" min="0" placeholder="Quantidade">
+  <div class="actions">
+    <button type="button" data-close="dlgQty">Cancelar</button>
+    <button type="button" class="primary" id="qSave">Salvar</button>
+  </div>
+</dialog>
+
+<dialog id="dlgReport">
+  <h3>Relatório de estoque</h3>
+  <p>Envie pelo WhatsApp ou copie o texto.</p>
+  <textarea id="repText" readonly></textarea>
+  <div class="actions">
+    <a id="repWa" class="wa" href="#" target="_blank" rel="noopener">WhatsApp</a>
+    <button type="button" class="primary" id="repCopy">Copiar</button>
+    <button type="button" data-close="dlgReport">Fechar</button>
+  </div>
+</dialog>
+
+<dialog id="dlgMenu">
+  <h3>Mais opções</h3>
+  <div class="menu">
+    <button type="button" id="optLow">Alerta de estoque baixo (atual: <span id="lowNow"></span>)</button>
+    <button type="button" id="optHist">Limpar histórico</button>
+    <button type="button" id="optZero">Zerar todo o estoque</button>
+  </div>
+  <div class="actions"><button type="button" data-close="dlgMenu">Fechar</button></div>
+</dialog>
+
+<dialog id="dlgLow">
+  <h3>Alerta de estoque baixo</h3>
+  <p>Avisar quando uma cor tiver esta quantidade ou menos:</p>
+  <input id="lowInput" type="number" inputmode="numeric" min="0">
+  <div class="actions">
+    <button type="button" data-close="dlgLow">Cancelar</button>
+    <button type="button" class="primary" id="lowSave">Salvar</button>
+  </div>
+</dialog>
+
+<dialog id="dlgConfirm">
+  <h3 id="cTitle"></h3>
+  <p id="cText"></p>
+  <div class="actions">
+    <button type="button" data-close="dlgConfirm">Cancelar</button>
+    <button type="button" class="danger" id="cOk">Confirmar</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS = {ROSA:'#f4a7c0',PRETO:'#222222',BRANCO:'#ffffff',BEGE:'#e8d5b5',CAPPUCCINO:'#a67b5b',MARROM:'#6b4226',CINZA:'#9e9e9e'};
+const DOG = ['ROSA','PRETO','BRANCO','BEGE','CAPPUCCINO','MARROM'];
+const GATO = ['ROSA','PRETO','BRANCO','BEGE','CAPPUCCINO','CINZA'];
+const PRODUCTS = [
+  {id:'dog_fone', name:'DOG FONE', colors:DOG},
+  {id:'dog_oculos_macho', name:'DOG ÓCULOS MACHO', colors:DOG},
+  {id:'dog_oculos_femea', name:'DOG ÓCULOS FÊMEA', colors:DOG},
+  {id:'gato_fone', name:'GATO FONE', colors:GATO},
+  {id:'gato_oculos', name:'GATO ÓCULOS', colors:GATO},
+];
+const LOCAL_KEY = 'estoque_loja_v1';
+const HIST_MAX = 300;
+
+const $ = id => document.getElementById(id);
+const key = (p,c) => p+'__'+c;
+const cap = s => s.charAt(0)+s.slice(1).toLowerCase();
+
+// Estado
+const stock = {}; PRODUCTS.forEach(p=>p.colors.forEach(c=>stock[key(p.id,c)]=0));
+let low = 2, history = [], tab = 'all', cur = null, mode = 'in';
+let db = null;            // null => modo local (sem nuvem)
+const queues = {};        // uma gravação por documento de cada vez
+const pending = {};       // valor mais novo aguardando gravação
+
+// ---------- Armazenamento local (quando a nuvem não está disponível) ----------
+function loadLocal(){
+  try{
+    const s = JSON.parse(localStorage.getItem(LOCAL_KEY)||'null');
+    if(s && s.stock){
+      PRODUCTS.forEach(p=>p.colors.forEach(c=>{ const v=s.stock[p.id]&&s.stock[p.id][c]; if(typeof v==='number') stock[key(p.id,c)]=v; }));
+      if(typeof s.low==='number') low=s.low;
+      if(Array.isArray(s.history)) history=s.history;
+    }
+  }catch(e){}
+}
+function saveLocal(){
+  if(db) return;
+  try{
+    const st={}; PRODUCTS.forEach(p=>{ st[p.id]={}; p.colors.forEach(c=>st[p.id][c]=stock[key(p.id,c)]); });
+    localStorage.setItem(LOCAL_KEY, JSON.stringify({stock:st,low,history:history.slice(0,HIST_MAX)}));
+  }catch(e){}
+}
+
+// ---------- Nuvem ----------
+function writeDoc(path, data){
+  pending[path]=data;
+  const run = async () => {
+    const d = pending[path]; if(d===undefined) return;
+    delete pending[path];
+    try{ await db.doc(path).set(d); }
+    catch(e){ setStatus(e && e.code==='not_granted' ? 'Sem permissão para salvar' : 'Erro ao salvar – verifique a internet'); }
+  };
+  queues[path] = (queues[path]||Promise.resolve()).then(run);
+}
+async function startCloud(){
+  if(!window.claude || !window.claude.use){ return; }
+  let d = null;
+  try{ d = await window.claude.use('db'); }catch(e){}
+  if(!d){ setStatus('Modo offline: dados salvos só neste aparelho'); return; }
+  db = d;
+  setStatus('Conectando…');
+  let gotLive = false;
+  const timer = setTimeout(()=>{ if(!gotLive) setStatus('Sem conexão – os números podem estar desatualizados'); }, 10000);
+  const live = (meta) => { if(!meta || !meta.fromCache){ if(!gotLive){ gotLive=true; clearTimeout(timer); } setStatus('Sincronizado na nuvem ✓'); } };
+  const fail = () => { clearTimeout(timer); setStatus('Falha ao conectar – recarregue a página'); };
+
+  // zera e aplica o que veio da nuvem
+  db.collection('estoque').onSnapshot(snap=>{
+    Object.keys(stock).forEach(k=>{ if(!(('estoque/'+k) in pending)) stock[k]=0; });
+    snap.docs.forEach(doc=>{ if(doc.id in stock && !(('estoque/'+doc.id) in pending)){ const q=doc.data().q; stock[doc.id]=typeof q==='number'?q:0; } });
+    live(snap.metadata); render();
+  }, fail);
+  db.doc('config/geral').onSnapshot(snap=>{
+    if(snap.exists){ const v=snap.data().low; if(typeof v==='number') low=v; }
+    live(snap.metadata); render();
+  }, fail);
+  db.collection('historico').orderBy('ts','desc').limit(HIST_MAX).onSnapshot(snap=>{
+    history = snap.docs.map(d=>Object.assign({id:d.id}, d.data()));
+    live(snap.metadata); if(tab==='hist') render();
+  }, fail);
+}
+function setStatus(t){ $('status').textContent=t; }
+
+// ---------- Ações ----------
+function change(pid,c,newQ,type){
+  newQ = Math.max(0, Math.floor(newQ));
+  const k = key(pid,c), old = stock[k];
+  if(newQ===old) return;
+  stock[k]=newQ;
+  const h = {ts:Date.now(),p:pid,c,d:newQ-old,q:newQ,t:type};
+  if(db){
+    writeDoc('estoque/'+k, {p:pid,c,q:newQ,ts:h.ts});
+    db.collection('historico').add(h).catch(()=>{});
+    history.unshift(h);
+    pruneHistory();
+  }else{
+    history.unshift(h); if(history.length>HIST_MAX) history.length=HIST_MAX; saveLocal();
+  }
+  render();
+}
+let pruning=false;
+async function pruneHistory(){
+  if(!db || pruning || history.length < HIST_MAX) return;
+  pruning=true;
+  try{
+    const old = await db.collection('historico').orderBy('ts','asc').limit(50).get();
+    for(const d of old.docs){ await db.doc('historico/'+d.id).delete(); }
+  }catch(e){}
+  pruning=false;
+}
+function step(pid,c,d){
+  if(d<0 && stock[key(pid,c)]<=0){ toast('Já está zerado'); return; }
+  change(pid,c,stock[key(pid,c)]+d,'step');
+}
+
+// ---------- Tela ----------
+const level = q => q<=0 ? 'zero' : (q<=low ? 'low' : '');
+const pTotal = p => p.colors.reduce((a,c)=>a+stock[key(p.id,c)],0);
+
+function render(){
+  const items = [['all','Todos'], ...PRODUCTS.map(p=>[p.id,p.name]), ['low','⚠ Baixos'], ['hist','Histórico']];
+  $('tabs').innerHTML = items.map(([id,l]) => `<button type="button" class="${tab===id?'on':''}" data-tab="${id}">${l}</button>`).join('');
+  let total=0, zero=0, lw=0;
+  Object.values(stock).forEach(q=>{ total+=q; if(q<=0) zero++; else if(q<=low) lw++; });
+  $('tTotal').textContent=total; $('tZero').textContent=zero; $('tLow').textContent=lw;
+
+  const m=$('main');
+  if(tab==='hist'){ m.innerHTML=renderHist(); return; }
+  const list = (tab==='all'||tab==='low') ? PRODUCTS : PRODUCTS.filter(p=>p.id===tab);
+  let html='';
+  list.forEach(p=>{
+    let colors=p.colors;
+    if(tab==='low') colors=colors.filter(c=>stock[key(p.id,c)]<=low);
+    if(!colors.length) return;
+    html+=`<section class="card"><h2>${p.name}<small>${pTotal(p)} un.</small></h2>`;
+    colors.forEach(c=>{
+      const q=stock[key(p.id,c)], lv=level(q);
+      const tag = lv==='zero'?'<span class="tag zero">ZERADO</span>':lv==='low'?'<span class="tag low">BAIXO</span>':'';
+      html+=`<div class="row"><span class="sw" style="background:${COLORS[c]}"></span>
+        <span class="name">${cap(c)}${tag}</span>
+        <button type="button" class="btn minus" data-step="-1" data-p="${p.id}" data-c="${c}" aria-label="Tirar 1 ${cap(c)}">−</button>
+        <button type="button" class="qty ${lv}" data-qty="1" data-p="${p.id}" data-c="${c}" aria-label="Alterar quantidade">${q}</button>
+        <button type="button" class="btn plus" data-step="1" data-p="${p.id}" data-c="${c}" aria-label="Somar 1 ${cap(c)}">+</button></div>`;
+    });
+    html+='</section>';
+  });
+  m.innerHTML = html || '<div class="empty">Nenhum item com estoque baixo. 🎉</div>';
+}
+function renderHist(){
+  if(!history.length) return '<div class="empty">Nenhuma movimentação ainda. Use os botões + e − para registrar entradas e saídas.</div>';
+  return '<section class="card hist">'+history.map(h=>{
+    const p=PRODUCTS.find(x=>x.id===h.p), nm=p?p.name:'Estoque';
+    const label = h.t==='zero' ? 'Estoque zerado' : h.t==='set' ? 'Ajuste' : (h.d>0?'Entrada':'Saída');
+    const cls=h.d>0?'in':'out', sign=h.d>0?'+':'';
+    return `<div class="row"><div class="name"><div>${nm}${h.c&&p?' · '+cap(h.c):''}</div>
+      <div class="when">${label} · ${fmtDate(h.ts)}${p?' · ficou '+h.q:''}</div></div>
+      <span class="d ${cls}">${h.t==='zero'?'':sign+h.d}</span></div>`;
+  }).join('')+'</section>';
+}
+function fmtDate(ts){ const d=new Date(ts), z=n=>String(n).padStart(2,'0'); return `${z(d.getDate())}/${z(d.getMonth()+1)}/${d.getFullYear()} ${z(d.getHours())}:${z(d.getMinutes())}`; }
+
+// ---------- Diálogos ----------
+function openQty(pid,c){
+  cur={pid,c};
+  const p=PRODUCTS.find(x=>x.id===pid);
+  $('qTitle').textContent=`${p.name} · ${cap(c)}`;
+  $('qNow').textContent=`Estoque atual: ${stock[key(pid,c)]}`;
+  setMode('in'); $('qInput').value='';
+  $('dlgQty').showModal(); setTimeout(()=>$('qInput').focus(),80);
+}
+function setMode(m){
+  mode=m;
+  [['in','mIn'],['out','mOut'],['set','mSet']].forEach(([x,id])=>$(id).classList.toggle('on',x===m));
+  $('qInput').placeholder = m==='set'?'Nova quantidade total':'Quantidade';
+}
+function applyQty(){
+  const v=parseInt($('qInput').value,10);
+  if(isNaN(v)||v<0){ toast('Digite um número válido'); return; }
+  const now=stock[key(cur.pid,cur.c)];
+  if(mode==='out' && v>now){ toast(`Só tem ${now} em estoque`); return; }
+  const n = mode==='in'?now+v : mode==='out'?now-v : v;
+  change(cur.pid,cur.c,n,mode==='set'?'set':'step');
+  $('dlgQty').close();
+}
+function reportText(){
+  let t=`📦 *ESTOQUE DA LOJA* – ${fmtDate(Date.now())}\n`, total=0;
+  PRODUCTS.forEach(p=>{
+    t+=`\n*${p.name}* (${pTotal(p)})\n`;
+    p.colors.forEach(c=>{ const q=stock[key(p.id,c)]; total+=q; t+=`${cap(c)}: ${q}${q<=0?' ❌':(q<=low?' ⚠️':'')}\n`; });
+  });
+  return t+`\n*TOTAL: ${total} peças*`;
+}
+let confirmFn=null;
+function ask(title,text,fn){ $('cTitle').textContent=title; $('cText').textContent=text; confirmFn=fn; $('dlgMenu').close(); $('dlgConfirm').showModal(); }
+
+// ---------- Eventos ----------
+document.addEventListener('click', e=>{
+  const b=e.target.closest('button,[data-close]'); if(!b) return;
+  if(b.dataset.tab){ tab=b.dataset.tab; render(); window.scrollTo(0,0); }
+  else if(b.dataset.step){ step(b.dataset.p,b.dataset.c,+b.dataset.step); }
+  else if(b.dataset.qty){ openQty(b.dataset.p,b.dataset.c); }
+  else if(b.dataset.close){ $(b.dataset.close).close(); }
+});
+$('mIn').onclick=()=>setMode('in'); $('mOut').onclick=()=>setMode('out'); $('mSet').onclick=()=>setMode('set');
+$('qSave').onclick=applyQty;
+$('qInput').addEventListener('keydown',e=>{ if(e.key==='Enter') applyQty(); });
+$('btnReport').onclick=()=>{
+  const t=reportText(); $('repText').value=t;
+  $('repWa').href='https://wa.me/?text='+encodeURIComponent(t);
+  $('dlgReport').showModal();
+};
+$('repCopy').onclick=()=>{
+  const t=$('repText').value;
+  const fallback=()=>{ $('repText').focus(); $('repText').select(); toast('Texto selecionado – copie manualmente'); };
+  try{ navigator.clipboard.writeText(t).then(()=>toast('Relatório copiado'), fallback); }catch(e){ fallback(); }
+};
+$('btnMenu').onclick=()=>{ $('lowNow').textContent=low; $('dlgMenu').showModal(); };
+$('optLow').onclick=()=>{ $('dlgMenu').close(); $('lowInput').value=low; $('dlgLow').showModal(); };
+$('lowSave').onclick=()=>{
+  const v=parseInt($('lowInput').value,10);
+  if(isNaN(v)||v<0){ toast('Número inválido'); return; }
+  low=v; if(db) writeDoc('config/geral',{low:v}); else saveLocal();
+  render(); $('dlgLow').close(); toast('Alerta atualizado');
+};
+$('optHist').onclick=()=>ask('Limpar histórico','Apagar todas as movimentações registradas? O estoque não muda.', async ()=>{
+  const ids=history.map(h=>h.id).filter(Boolean); history=[]; render();
+  if(db){ for(const id of ids){ try{ await db.doc('historico/'+id).delete(); }catch(e){} } } else saveLocal();
+  toast('Histórico limpo');
+});
+$('optZero').onclick=()=>ask('Zerar todo o estoque','Todas as cores de todos os produtos ficarão com 0. Isso não pode ser desfeito.', ()=>{
+  const ts=Date.now();
+  Object.keys(stock).forEach(k=>{ if(stock[k]!==0){ stock[k]=0; if(db){ const [p,c]=k.split('__'); writeDoc('estoque/'+k,{p,c,q:0,ts}); } } });
+  const h={ts,p:'',c:'',d:0,q:0,t:'zero'};
+  if(db) db.collection('historico').add(h).catch(()=>{});
+  history.unshift(h); saveLocal(); render(); toast('Estoque zerado');
+});
+$('cOk').onclick=()=>{ $('dlgConfirm').close(); if(confirmFn) confirmFn(); confirmFn=null; };
+
+let tt; function toast(msg){ const e=$('toast'); e.textContent=msg; e.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>e.classList.remove('show'),1800); }
+
+loadLocal();
+render();
+if(window.claude && window.claude.use){ startCloud(); } else { setStatus('Dados salvos neste aparelho'); }
+</script>
