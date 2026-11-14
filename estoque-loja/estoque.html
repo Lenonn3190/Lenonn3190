@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Estoque da Loja</title>
+<style>
+  :root{
+    --bg:#f6f3f7; --card:#fff; --ink:#2b2530; --muted:#7a7080; --line:#e7e0ea;
+    --accent:#c2185b; --accent-ink:#fff; --ok:#2e7d32; --warn:#ef6c00; --bad:#c62828;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Roboto,sans-serif}
+  header{position:sticky;top:0;z-index:5;background:var(--accent);color:var(--accent-ink);padding:14px 16px 10px;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+  header h1{margin:0;font-size:20px;font-weight:700}
+  .totals{display:flex;gap:16px;margin-top:6px;font-size:13px;opacity:.95}
+  .totals b{font-size:16px}
+  nav{display:flex;gap:6px;padding:10px 12px;overflow-x:auto;background:var(--bg);position:sticky;top:64px;z-index:4}
+  nav button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:20px;padding:8px 14px;font-size:14px}
+  nav button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  main{padding:4px 12px 90px}
+  .card{background:var(--card);border-radius:14px;margin:10px 0;box-shadow:0 1px 3px rgba(0,0,0,.07);overflow:hidden}
+  .card h2{margin:0;padding:12px 14px;font-size:16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+  .card h2 small{font-weight:600;color:var(--muted);font-size:13px}
+  .row{display:flex;align-items:center;padding:8px 10px 8px 14px;border-bottom:1px solid var(--line);gap:10px}
+  .row:last-child{border-bottom:0}
+  .sw{width:22px;height:22px;border-radius:50%;border:1px solid rgba(0,0,0,.2);flex:0 0 auto}
+  .name{flex:1;font-size:15px}
+  .name .tag{display:inline-block;margin-left:6px;font-size:11px;padding:1px 7px;border-radius:10px;color:#fff;vertical-align:middle}
+  .tag.zero{background:var(--bad)} .tag.low{background:var(--warn)}
+  .btn{width:44px;height:44px;border-radius:12px;border:0;font-size:24px;font-weight:700;line-height:1}
+  .minus{background:#fde7ec;color:var(--bad)} .plus{background:#e6f4ea;color:var(--ok)}
+  .qty{min-width:54px;text-align:center;font-size:20px;font-weight:700;padding:8px 4px;border-radius:8px}
+  .qty.zero{color:var(--bad)} .qty.low{color:var(--warn)}
+  .fab-bar{position:fixed;left:0;right:0;bottom:0;display:flex;gap:8px;padding:10px 12px;background:rgba(246,243,247,.96);border-top:1px solid var(--line)}
+  .fab-bar button{flex:1;border:0;border-radius:12px;padding:12px 6px;font-size:14px;font-weight:600;background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .fab-bar button.primary{background:var(--accent);color:#fff}
+  .empty{text-align:center;color:var(--muted);padding:30px 10px}
+  .hist{font-size:14px}
+  .hist .row{padding:10px 14px}
+  .hist .when{color:var(--muted);font-size:12px}
+  .hist .d{font-weight:700;min-width:44px;text-align:right}
+  .d.in{color:var(--ok)} .d.out{color:var(--bad)}
+  dialog{border:0;border-radius:16px;padding:18px;width:min(92vw,420px);box-shadow:0 10px 40px rgba(0,0,0,.3)}
+  dialog::backdrop{background:rgba(0,0,0,.45)}
+  dialog h3{margin:0 0 6px;font-size:18px}
+  dialog p{margin:4px 0 12px;color:var(--muted);font-size:14px}
+  dialog input,dialog textarea{width:100%;font-size:20px;padding:10px;border:1px solid var(--line);border-radius:10px}
+  dialog textarea{font-size:13px;height:160px}
+  .dlg-actions{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .dlg-actions button{flex:1;border:0;border-radius:10px;padding:12px;font-size:15px;font-weight:600;background:#eee}
+  .dlg-actions button.primary{background:var(--accent);color:#fff}
+  .dlg-actions button.danger{background:#fde7ec;color:var(--bad)}
+  .seg{display:flex;gap:6px;margin-bottom:10px}
+  .seg button{flex:1;border:1px solid var(--line);background:#fff;border-radius:10px;padding:10px;font-size:15px}
+  .seg button.on{background:var(--ink);color:#fff}
+  .menu button{display:block;width:100%;text-align:left;border:0;background:#f6f3f7;border-radius:10px;padding:14px;margin:6px 0;font-size:15px}
+  .toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%);background:#2b2530;color:#fff;padding:10px 16px;border-radius:20px;font-size:14px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:20}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<header>
+  <h1>Estoque da Loja</h1>
+  <div class="totals"><span>Total: <b id="tTotal">0</b> peças</span><span>Zerados: <b id="tZero">0</b></span><span>Baixos: <b id="tLow">0</b></span></div>
+</header>
+<nav id="tabs"></nav>
+<main id="main"></main>
+
+<div class="fab-bar">
+  <button class="primary" onclick="shareReport()">Enviar relatório</button>
+  <button onclick="openMenu()">Mais opções</button>
+</div>
+
+<dialog id="dlgQty">
+  <h3 id="qTitle"></h3>
+  <p id="qNow"></p>
+  <div class="seg">
+    <button id="mIn" onclick="setMode('in')">Entrada (+)</button>
+    <button id="mOut" onclick="setMode('out')">Saída (−)</button>
+    <button id="mSet" onclick="setMode('set')">Ajustar</button>
+  </div>
+  <input id="qInput" type="number" inputmode="numeric" min="0" placeholder="Quantidade">
+  <div class="dlg-actions">
+    <button onclick="closeDlg('dlgQty')">Cancelar</button>
+    <button class="primary" onclick="applyQty()">Salvar</button>
+  </div>
+</dialog>
+
+<dialog id="dlgMenu">
+  <h3>Mais opções</h3>
+  <div class="menu">
+    <button onclick="openLowSetting()">Alerta de estoque baixo (atual: <span id="lowNow"></span>)</button>
+    <button onclick="exportBackup()">Fazer backup (enviar dados)</button>
+    <button onclick="openImport()">Restaurar backup</button>
+    <button onclick="clearHistory()">Limpar histórico</button>
+    <button onclick="zeroAll()">Zerar todo o estoque</button>
+  </div>
+  <div class="dlg-actions"><button onclick="closeDlg('dlgMenu')">Fechar</button></div>
+</dialog>
+
+<dialog id="dlgLow">
+  <h3>Alerta de estoque baixo</h3>
+  <p>Avisar quando uma cor tiver esta quantidade ou menos:</p>
+  <input id="lowInput" type="number" inputmode="numeric" min="0">
+  <div class="dlg-actions">
+    <button onclick="closeDlg('dlgLow')">Cancelar</button>
+    <button class="primary" onclick="saveLow()">Salvar</button>
+  </div>
+</dialog>
+
+<dialog id="dlgImport">
+  <h3>Restaurar backup</h3>
+  <p>Cole aqui o texto do backup que você enviou antes. Isso substitui o estoque atual.</p>
+  <textarea id="impText"></textarea>
+  <div class="dlg-actions">
+    <button onclick="closeDlg('dlgImport')">Cancelar</button>
+    <button class="primary" onclick="doImport()">Restaurar</button>
+  </div>
+</dialog>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS = {
+  'ROSA':'#f4a7c0','PRETO':'#222222','BRANCO':'#ffffff','BEGE':'#e8d5b5',
+  'CAPPUCCINO':'#a67b5b','MARROM':'#6b4226','CINZA':'#9e9e9e'
+};
+const DOG = ['ROSA','PRETO','BRANCO','BEGE','CAPPUCCINO','MARROM'];
+const GATO = ['ROSA','PRETO','BRANCO','BEGE','CAPPUCCINO','CINZA'];
+const PRODUCTS = [
+  {id:'dog_fone', name:'DOG FONE', colors:DOG},
+  {id:'dog_oculos_macho', name:'DOG ÓCULOS MACHO', colors:DOG},
+  {id:'dog_oculos_femea', name:'DOG ÓCULOS FÊMEA', colors:DOG},
+  {id:'gato_fone', name:'GATO FONE', colors:GATO},
+  {id:'gato_oculos', name:'GATO ÓCULOS', colors:GATO},
+];
+const KEY = 'estoque_loja_v1';
+
+let state = load();
+let tab = 'all';
+let cur = null, mode = 'in';
+
+function blank(){
+  const stock = {};
+  PRODUCTS.forEach(p => { stock[p.id] = {}; p.colors.forEach(c => stock[p.id][c] = 0); });
+  return {stock, low:2, history:[]};
+}
+function load(){
+  const b = blank();
+  try{
+    const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if(s && s.stock){
+      PRODUCTS.forEach(p => p.colors.forEach(c => {
+        const v = s.stock[p.id] && s.stock[p.id][c];
+        if(typeof v === 'number') b.stock[p.id][c] = v;
+      }));
+      if(typeof s.low === 'number') b.low = s.low;
+      if(Array.isArray(s.history)) b.history = s.history.slice(0,500);
+    }
+  }catch(e){}
+  return b;
+}
+function save(){
+  try{ localStorage.setItem(KEY, JSON.stringify(state)); }catch(e){ toast('Erro ao salvar!'); }
+  if(window.Android && Android.save) try{ Android.save(JSON.stringify(state)); }catch(e){}
+}
+
+function level(q){ return q<=0 ? 'zero' : (q<=state.low ? 'low' : ''); }
+function pTotal(p){ return p.colors.reduce((a,c)=>a+state.stock[p.id][c],0); }
+function cap(s){ return s.charAt(0)+s.slice(1).toLowerCase(); }
+
+function renderTabs(){
+  const items = [['all','Todos'], ...PRODUCTS.map(p=>[p.id,p.name]), ['low','⚠ Baixos'], ['hist','Histórico']];
+  document.getElementById('tabs').innerHTML = items.map(([id,l]) =>
+    `<button class="${tab===id?'on':''}" onclick="setTab('${id}')">${l}</button>`).join('');
+}
+function setTab(t){ tab=t; render(); window.scrollTo(0,0); }
+
+function render(){
+  renderTabs();
+  let total=0, zero=0, low=0;
+  PRODUCTS.forEach(p=>p.colors.forEach(c=>{
+    const q=state.stock[p.id][c]; total+=q;
+    if(q<=0) zero++; else if(q<=state.low) low++;
+  }));
+  document.getElementById('tTotal').textContent=total;
+  document.getElementById('tZero').textContent=zero;
+  document.getElementById('tLow').textContent=low;
+
+  const m = document.getElementById('main');
+  if(tab==='hist'){ m.innerHTML = renderHist(); return; }
+  let list = tab==='all'||tab==='low' ? PRODUCTS : PRODUCTS.filter(p=>p.id===tab);
+  let html='';
+  list.forEach(p=>{
+    let colors = p.colors;
+    if(tab==='low') colors = colors.filter(c=>state.stock[p.id][c]<=state.low);
+    if(!colors.length) return;
+    html += `<section class="card"><h2>${p.name}<small>${pTotal(p)} un.</small></h2>`;
+    colors.forEach(c=>{
+      const q=state.stock[p.id][c], lv=level(q);
+      const tag = lv==='zero'?'<span class="tag zero">ZERADO</span>':lv==='low'?'<span class="tag low">BAIXO</span>':'';
+      html += `<div class="row">
+        <span class="sw" style="background:${COLORS[c]}"></span>
+        <span class="name">${cap(c)}${tag}</span>
+        <button class="btn minus" onclick="step('${p.id}','${c}',-1)">−</button>
+        <span class="qty ${lv}" onclick="openQty('${p.id}','${c}')">${q}</span>
+        <button class="btn plus" onclick="step('${p.id}','${c}',1)">+</button>
+      </div>`;
+    });
+    html += `</section>`;
+  });
+  if(!html) html = `<div class="empty">Nenhum item com estoque baixo. 🎉</div>`;
+  m.innerHTML = html;
+}
+
+function renderHist(){
+  if(!state.history.length) return `<div class="empty">Nenhuma movimentação ainda.</div>`;
+  return `<section class="card hist">` + state.history.map(h=>{
+    const p = PRODUCTS.find(x=>x.id===h.p); const nm = p?p.name:h.p;
+    const cls = h.d>0?'in':'out', sign = h.d>0?'+':'';
+    const label = h.t==='set' ? 'Ajuste' : (h.d>0?'Entrada':'Saída');
+    return `<div class="row"><div style="flex:1"><div>${nm} · ${cap(h.c)}</div>
+      <div class="when">${label} · ${fmtDate(h.ts)} · ficou ${h.q}</div></div>
+      <span class="d ${cls}">${sign}${h.d}</span></div>`;
+  }).join('') + `</section>`;
+}
+function fmtDate(ts){
+  const d=new Date(ts), z=n=>String(n).padStart(2,'0');
+  return `${z(d.getDate())}/${z(d.getMonth()+1)}/${d.getFullYear()} ${z(d.getHours())}:${z(d.getMinutes())}`;
+}
+
+function change(pid,c,newQ,type){
+  newQ = Math.max(0, Math.floor(newQ));
+  const old = state.stock[pid][c];
+  if(newQ===old) return;
+  state.stock[pid][c]=newQ;
+  state.history.unshift({ts:Date.now(),p:pid,c,d:newQ-old,q:newQ,t:type});
+  if(state.history.length>500) state.history.length=500;
+  save(); render();
+}
+function step(pid,c,d){
+  if(d<0 && state.stock[pid][c]<=0){ toast('Já está zerado'); return; }
+  change(pid,c,state.stock[pid][c]+d,'step');
+}
+
+function openQty(pid,c){
+  cur={pid,c};
+  const p=PRODUCTS.find(x=>x.id===pid);
+  document.getElementById('qTitle').textContent=`${p.name} · ${cap(c)}`;
+  document.getElementById('qNow').textContent=`Estoque atual: ${state.stock[pid][c]}`;
+  setMode('in');
+  const i=document.getElementById('qInput'); i.value='';
+  document.getElementById('dlgQty').showModal();
+  setTimeout(()=>i.focus(),100);
+}
+function setMode(m){
+  mode=m;
+  [['in','mIn'],['out','mOut'],['set','mSet']].forEach(([x,id])=>document.getElementById(id).classList.toggle('on',x===m));
+  document.getElementById('qInput').placeholder = m==='set'?'Nova quantidade total':'Quantidade';
+}
+function applyQty(){
+  const v=parseInt(document.getElementById('qInput').value,10);
+  if(isNaN(v)||v<0){ toast('Digite um número válido'); return; }
+  const now=state.stock[cur.pid][cur.c];
+  let n = mode==='in'?now+v : mode==='out'?now-v : v;
+  if(mode==='out' && v>now){ toast(`Só tem ${now} em estoque`); return; }
+  change(cur.pid,cur.c,n,mode==='set'?'set':'step');
+  closeDlg('dlgQty');
+}
+document.getElementById('qInput').addEventListener('keydown',e=>{ if(e.key==='Enter') applyQty(); });
+
+function closeDlg(id){ document.getElementById(id).close(); }
+function openMenu(){ document.getElementById('lowNow').textContent=state.low; document.getElementById('dlgMenu').showModal(); }
+function openLowSetting(){ closeDlg('dlgMenu'); document.getElementById('lowInput').value=state.low; document.getElementById('dlgLow').showModal(); }
+function saveLow(){
+  const v=parseInt(document.getElementById('lowInput').value,10);
+  if(isNaN(v)||v<0){ toast('Número inválido'); return; }
+  state.low=v; save(); render(); closeDlg('dlgLow'); toast('Alerta atualizado');
+}
+
+function share(text,title){
+  if(window.Android && Android.share){ Android.share(text,title||'Estoque'); return; }
+  if(navigator.share){ navigator.share({text}).catch(()=>{}); return; }
+  navigator.clipboard && navigator.clipboard.writeText(text); toast('Copiado');
+}
+function shareReport(){
+  let t=`📦 *ESTOQUE DA LOJA* – ${fmtDate(Date.now())}\n`;
+  let total=0;
+  PRODUCTS.forEach(p=>{
+    t+=`\n*${p.name}* (${pTotal(p)})\n`;
+    p.colors.forEach(c=>{
+      const q=state.stock[p.id][c]; total+=q;
+      const f = q<=0?' ❌':(q<=state.low?' ⚠️':'');
+      t+=`${cap(c)}: ${q}${f}\n`;
+    });
+  });
+  t+=`\n*TOTAL: ${total} peças*`;
+  share(t,'Relatório de estoque');
+}
+function exportBackup(){
+  closeDlg('dlgMenu');
+  share('ESTOQUE_BACKUP:'+JSON.stringify({stock:state.stock,low:state.low,history:state.history.slice(0,200)}),'Backup do estoque');
+}
+function openImport(){ closeDlg('dlgMenu'); document.getElementById('impText').value=''; document.getElementById('dlgImport').showModal(); }
+function doImport(){
+  let s=document.getElementById('impText').value.trim();
+  const i=s.indexOf('{'); if(i<0){ toast('Backup inválido'); return; }
+  try{
+    const o=JSON.parse(s.slice(i, s.lastIndexOf('}')+1));
+    if(!o.stock) throw 0;
+    localStorage.setItem(KEY, JSON.stringify(o));
+    state=load(); save(); render(); closeDlg('dlgImport'); toast('Backup restaurado!');
+  }catch(e){ toast('Backup inválido'); }
+}
+function clearHistory(){
+  closeDlg('dlgMenu');
+  if(confirm('Apagar todo o histórico de movimentações?')){ state.history=[]; save(); render(); toast('Histórico limpo'); }
+}
+function zeroAll(){
+  closeDlg('dlgMenu');
+  if(confirm('Zerar o estoque de TODOS os produtos? Isso não pode ser desfeito.')){
+    PRODUCTS.forEach(p=>p.colors.forEach(c=>state.stock[p.id][c]=0));
+    state.history.unshift({ts:Date.now(),p:'—',c:'TUDO',d:0,q:0,t:'set'});
+    save(); render(); toast('Estoque zerado');
+  }
+}
+
+let tt;
+function toast(msg){ const e=document.getElementById('toast'); e.textContent=msg; e.classList.add('show'); clearTimeout(tt); tt=setTimeout(()=>e.classList.remove('show'),1800); }
+
+// Recupera cópia de segurança salva pelo Android caso o armazenamento do WebView seja perdido
+(function(){
+  try{
+    if(!localStorage.getItem(KEY) && window.Android && Android.load){
+      const s=Android.load(); if(s){ localStorage.setItem(KEY,s); state=load(); }
+    }
+  }catch(e){}
+})();
+render();
+</script>
+</body>
+</html>
