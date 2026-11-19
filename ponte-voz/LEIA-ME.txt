@@ -1,0 +1,308 @@
+PONTE — tradutor de voz português ⇄ japonês
+============================================
+
+COMO PUBLICAR (leva 1 minuto)
+-----------------------------
+1. Abra https://app.netlify.com/drop
+2. Arraste este arquivo .zip para a área indicada.
+   (Não precisa criar conta para testar. Crie depois, se quiser
+    manter o endereço fixo.)
+3. O Netlify devolve um endereço tipo
+   https://algum-nome-aleatorio.netlify.app
+4. Esse é o link. Abra no seu celular e mande para o convidado.
+
+Se quiser um endereço mais apresentável, no painel do site:
+Site configuration -> Change site name.
+
+
+PRIMEIRO USO NO CELULAR
+-----------------------
+1. Abra o link no celular.
+2. Toque na engrenagem (⚙).
+3. Pegue uma chave gratuita em https://aistudio.google.com/apikey
+   e cole no campo indicado. As chaves novas começam com "AQ."
+   As antigas, com "AIza", ainda funcionam no app, mas o Google
+   encerra esse formato em SETEMBRO DE 2026 -- gere uma nova.
+
+   ATENÇÃO 1: assinatura Gemini Pro / Google AI Pro NÃO serve
+   aqui. Ela vale dentro do app do Gemini e do AI Studio; o uso
+   por chave de API é cobrado à parte.
+
+   ATENÇÃO 2 -- IMPORTANTE PARA A VISITA: o plano gratuito dá
+   apenas 20 pedidos POR DIA PARA CADA MODELO (medido contra a
+   API). O app troca de modelo quando um estoura, o que dá umas
+   200 traduções por dia -- ainda pouco para uma atividade
+   inteira.
+
+   Para a visita valer, ATIVE O FATURAMENTO na mesma página da
+   chave. Um dia de conversa custa centavos, mas o limite sobe
+   muitas ordens de grandeza. Sem isso a tradução para no meio
+   do dia, e o app vai avisar "Cota diária da API esgotada".
+4. Toque em "Testar conexão e listar modelos".
+   Se aparecer "✓ Conectado", está pronto.
+5. Ainda na engrenagem, confira se aparece "✓ 日本語" nas vozes.
+   Se não aparecer, o aparelho não tem a voz japonesa instalada:
+   a tradução continua aparecendo escrita, mas não é falada.
+   Android: Configurações -> Sistema -> Idiomas ->
+            Conversão de texto em voz -> instalar japonês.
+   iPhone: já vem de fábrica.
+
+A chave fica salva só naquele celular. Cada aparelho cola a sua.
+
+INSTALAR COMO APLICATIVO
+   Quando o navegador oferecer, aparece um botão 📲 na barra do
+   meio -- a mesma opção fica em ⚙ -> "Instalar no celular".
+   Instalado, o app abre em tela cheia por ícone próprio, sem a
+   barra do navegador: mais espaço para o texto e mais fácil de
+   achar no meio da visita.
+
+   No iPhone o Safari não deixa a página instalar sozinha: use
+   Compartilhar -> Adicionar à Tela de Início.
+
+   NÃO existe APK e não faz falta: instalado assim, o app já fica
+   com ícone próprio, tela cheia, funcionando offline nas frases
+   e segurando a tela acesa. Um APK só acrescentaria o trabalho
+   de reinstalar o aparelho a cada correção.
+
+
+ANTES DA VISITA: AS DUAS COISAS QUE MAIS AJUDAM
+-----------------------------------------------
+Nenhuma das duas é trocar de modelo. Um modelo maior acerta mais
+gramática; estas duas dizem a ele DO QUE se está falando, que é
+onde a tradução automática realmente erra.
+
+1) DESCREVA A ATIVIDADE
+   Em ⚙ -> "Contexto da atividade", duas linhas bastam:
+
+   "Visita de um engenheiro japonês da Honda à nossa fábrica de
+    motores, para auditoria de processo na linha de montagem.
+    Vamos percorrer o chão de fábrica e discutir índices de
+    qualidade."
+
+   Com isso o intérprete sabe o registro, o domínio técnico e
+   quem fala com quem.
+
+2) PREENCHA O GLOSSÁRIO
+   É o passo que quase ninguém faz.
+
+Toque em "用語集" e depois em "Carregar termos de fábrica de
+motores": entram de uma vez os termos de linha de montagem,
+qualidade e peças de motor (takt time, 不良品, 公差,
+クランクシャフト, 現場...).
+
+Depois acrescente o que é só da sua empresa: nome de máquina,
+código de peça, sigla interna, nome próprio. Exemplos:
+
+   romaneio            -> 積荷リスト   (lista de embarque)
+   ETG                 -> ETG          (nome da empresa, não traduzir)
+   ordem de produção   -> 製造指図
+
+O tradutor é obrigado a usar exatamente esses equivalentes.
+
+
+COMO USAR NA CONVERSA
+---------------------
+Deite o celular na mesa entre vocês dois. O painel de cima aparece
+de cabeça para baixo de propósito: fica na leitura correta para
+quem está sentado do outro lado.
+
+Cada pessoa toca no SEU próprio botão e fala. A gravação para
+sozinha quando a pessoa fica em silêncio, então é um toque só.
+
+O texto aparece nas duas línguas ao mesmo tempo. Se o som falhar
+ou o ambiente estiver barulhento, dá para ler e apontar na tela.
+
+Se o app não conseguir entender palavra nenhuma -- ruído de
+linha, batida de ferramenta, voz longe demais -- ele avisa que
+não entendeu em vez de inventar uma frase. É de propósito: uma
+frase inventada seria acreditada pelos dois.
+
+O botão 📖 abre 101 frases prontas que funcionam SEM internet,
+agrupadas por tema (segurança, linha e produção, qualidade e
+inspeção, peças de motor, ferramentas, manutenção, kaizen) e com
+busca em português, japonês ou romaji.
+O botão 🕘 mostra a conversa e permite exportar tudo em texto.
+
+
+CHAVE COMPARTILHADA (OPCIONAL)
+------------------------------
+Se você não quiser colar a chave em cada aparelho, o pacote já traz
+a função pronta em netlify/functions/gemini.mjs:
+
+1. No painel do Netlify: Site configuration -> Environment variables
+2. Crie GEMINI_API_KEY com a sua chave
+3. Republique (arraste o zip de novo)
+4. No app, em ⚙ -> "Servidor intermediário", cole
+      https://SEU-SITE.netlify.app/api
+   e deixe o campo da chave VAZIO
+
+Limite a saber: a função é cortada em 10 segundos. Uma fala curta
+responde em 1 a 3 segundos, então na prática funciona, mas uma fala
+muito longa pode estourar esse teto. Se incomodar, volte a usar a
+chave em cada aparelho (que não tem limite nenhum).
+
+
+FONE DE OUVIDO: UM PAR, UM FONE PARA CADA UM
+--------------------------------------------
+Isto FUNCIONA e é a melhor opção. Com os dois fones de um par
+Bluetooth fora do estojo, o par fica em estéreo normal: um canal
+em cada fone. Dá então para mandar cada tradução só para o ouvido
+de quem precisa dela -- você não leva japonês no ouvido, ele não
+leva português.
+
+Como ligar:
+  ⚙ -> Modo fone -> "Separar as vozes por lado do fone"
+  Diga qual lado é o seu e toque em "Testar os lados".
+
+O teste toca um tom à esquerda e outro à direita. SE AS DUAS
+PESSOAS OUVIREM OS DOIS TONS, o par de vocês não separa os canais
+e o modo não serve. Melhor descobrir isso agora do que na visita.
+
+Três coisas a saber:
+
+- Os DOIS fones precisam estar fora do estojo. Um fone sozinho
+  entra em modo mono e toca a mistura dos dois canais.
+
+- A voz leva ~3 segundos (medido). A voz do aparelho sai na
+  hora, mas não dá para direcioná-la por lado -- só a do Gemini.
+  Por isso o modo vem desligado por padrão.
+
+  Na prática esses 3 segundos quase não atrapalham: o texto
+  aparece na tela antes, o microfone é liberado na hora e a
+  conversa segue enquanto a voz vem. Frase repetida sai
+  instantânea, porque o áudio fica guardado.
+
+- NÃO use o microfone dos fones neste modo. Ativar o microfone
+  Bluetooth troca o perfil de áudio para mono e a separação de
+  canais some. Deixe o microfone no do celular, num headset com
+  fio ou no microfone de lapela da seção abaixo.
+
+Se a voz do Gemini falhar, o app fala pela voz do aparelho (nos
+dois fones) e avisa na barra de status, em vez de ficar mudo.
+
+Dois fones de PARES DIFERENTES no mesmo celular não funcionam --
+nenhum navegador de celular permite isso.
+
+
+ALTERNATIVAS SEM SEPARAÇÃO POR LADO
+-----------------------------------
+- Divisor Y de 3,5 mm com dois fones: os dois ouvem tudo,
+  inclusive a língua que não entendem (é só ruído inofensivo).
+  Não tem o custo de latência.
+
+- Um headset com haste de microfone. Numa fábrica de motores isso
+  pesa muito mais pelo microfone do que pelo alto-falante: o
+  alto-falante do celular não vai ser ouvido com a linha rodando
+  de qualquer jeito, e o microfone perto da boca é o que salva a
+  transcrição.
+
+Com o fone conectado, vá em ⚙ -> Microfone -> "Procurar
+microfones" e escolha o do headset. Sem isso o navegador pode
+continuar usando o microfone interno do aparelho.
+
+
+MICROFONE DE LAPELA SEM FIO (KIT DE 2)
+--------------------------------------
+Aqueles kits de "wireless lavalier microphone" -- um receptor que
+espeta na porta do celular e dois transmissores de clipe --
+resolvem o problema mais difícil aqui, que é CAPTAR numa fábrica.
+Microfone a 15 cm da boca vale mais que qualquer troca de modelo.
+
+Eles NÃO tocam som nenhum: são só microfone. Para ouvir a
+tradução ainda precisa de fone. É a soma dos dois que funciona.
+
+A COMBINAÇÃO BOA: lapela na porta do celular + fone Bluetooth
+para ouvir.
+
+O motivo: o aviso lá de cima -- não use o microfone dos fones
+Bluetooth, porque ativá-lo joga o áudio para mono e a separação
+por lado some -- NÃO vale aqui. O receptor de lapela é 2,4 GHz na
+porta do aparelho, não é Bluetooth. O Bluetooth fica só na saída,
+em estéreo. Então dá para ter ao mesmo tempo microfone bom e cada
+tradução no ouvido certo, que antes era um ou outro.
+
+Confira três coisas antes:
+
+- O CONECTOR. Os kits vêm em USB-C, Lightning e P2. Tem que ser o
+  da porta do seu aparelho.
+
+- A PORTA FICA OCUPADA. Com o receptor espetado não dá fone com
+  fio nem carregar. Só reforça o fone Bluetooth.
+
+- NO IPHONE o Safari ignora a escolha de microfone: o iOS manda
+  sozinho para o acessório conectado. Costuma dar certo, mas a
+  lista de ⚙ -> Microfone não vai obedecer. No Android obedece.
+
+OS DOIS MICROFONES SAEM SEPARADOS OU MISTURADOS? Depende do kit.
+Teste sem o app: grave um vídeo curto falando só no transmissor
+A, depois só no B, e ouça com fone. Se cada um sair de um lado, o
+kit separa os canais; se os dois saírem no meio, ele mistura.
+
+O app funciona igual nos dois casos. Se o seu separar, me avise:
+dá para o mãos livres saber QUEM falou pelo canal em vez de
+deduzir pelo idioma.
+
+
+MODO MÃOS LIVRES (⚙ -> Mãos livres)
+------------------------------------
+O microfone fica aberto, o app detecta sozinho quando alguém
+fala, identifica se foi português ou japonês, e traduz para o
+outro. Ninguém toca em botão.
+
+USE FONE DE OUVIDO neste modo. Com o microfone sempre aberto, o
+app ouviria a própria voz, traduziria e falaria de novo, num
+laço. Existe trava para isso, mas som vazando do alto-falante
+ainda atrapalha. Com fone o problema some.
+
+Duas coisas para você decidir com consciência:
+
+- CADA TRECHO DETECTADO É UMA CHAMADA PAGA. No modo manual você
+  controla quantas; aqui ruído de linha, conversa alheia e
+  batida de ferramenta podem disparar sozinhos. Em ambiente
+  barulhento o gasto sobe.
+
+- UMA PESSOA POR VEZ. Se os dois falarem juntos o trecho sai
+  embolado. O botão do modo manual força a alternância; mãos
+  livres não.
+
+Neste modo os botões deixam de gravar: um toque PAUSA a escuta,
+outro retoma. Útil para uma conversa paralela que não deve ser
+traduzida.
+
+
+SE ACHAR LENTO
+--------------
+Depois de cada tradução a barra do meio mostra o custo do turno,
+tipo "Pronto - 2,0s - 79 KB": o tempo e quanto de áudio subiu.
+Use isso para comparar na rede da sua fábrica.
+
+Duas coisas que você pode mexer:
+
+- ⚙ -> Velocidade -> desligar "Mostrar romaji". O romaji quase
+  dobra o texto que o modelo precisa gerar, e é isso que domina
+  o tempo. Desligado, o japonês continua escrito e falado; some
+  só a transliteração em letras latinas.
+
+- ⚙ -> "Testar conexão". Ele CRONOMETRA os modelos um por um e
+  adota o mais rápido. Modelo lento ou sobrecarregado é de longe
+  a causa mais comum: com uma chave real, dois modelos davam 503
+  ou 20s enquanto outro respondia em 3s, no mesmo minuto.
+
+  O app também faz isso sozinho: se duas falas seguidas passarem
+  de 8 segundos, ele sai procurando um modelo melhor em segundo
+  plano e avisa na barra quando trocar.
+
+O silêncio das pontas já é cortado automaticamente antes do
+envio (metade do que subia era silêncio).
+
+
+OBSERVAÇÕES
+-----------
+- O microfone só funciona em HTTPS. Por isso não adianta abrir o
+  index.html direto do computador: publique no Netlify.
+- Uma pessoa fala por vez. Se os dois falarem juntos, o áudio
+  embola.
+- Sem internet, só as frases essenciais funcionam.
+- Em ambiente muito barulhento, fale perto do aparelho ou use um
+  headset com haste de microfone.
+- A tela não apaga sozinha enquanto o app está aberto.
