@@ -174,7 +174,35 @@ await pg.click('#mCfg [data-close]'); await pg.waitForTimeout(500);
 const vivos = await pg.evaluate(() => medidor === null);
 vivos ? ok('fechar as configurações solta o microfone') : nok('o medidor continuou com o microfone aberto');
 
-console.log('\n=== 7. Sem vazamento horizontal ===');
+console.log('\n=== 7. Frases offline, e o manual batendo com o app ===');
+const dados = await pg.evaluate(() => ({
+  total: FRASES.reduce((a,c)=>a+c[1].length,0),
+  cats:  FRASES.map(c => c[0]),
+  gloss: GLOSSARIO_FABRICA.length,
+  furos: FRASES.flatMap(c=>c[1]).filter(f => !f[0]||!f[1]||!f[2]).length,
+  dup:   (()=>{ const v = FRASES.flatMap(c=>c[1]).map(f=>f[0]); return v.length - new Set(v).size; })()
+}));
+dados.furos === 0 ? ok(dados.total + ' frases, todas com português, japonês e romaji')
+                  : nok(dados.furos + ' frase(s) com campo faltando');
+dados.dup === 0 ? ok('nenhuma frase repetida') : nok(dados.dup + ' frase(s) repetida(s)');
+
+// O manual é o que a pessoa lê antes da visita; número errado ali custa
+// confiança no resto. Esta checagem é o que pega a deriva depois de mexer
+// nas frases — foi assim que apareceram as "101 frases em 7 temas" de um
+// app que já tinha 104 em 8.
+const manual = fs.readFileSync(path.join(RAIZ, 'LEIA-ME.txt'), 'utf8');
+const diz = (manual.match(/abre (\d+) frases prontas/) || [])[1];
+String(dados.total) === diz
+  ? ok('o manual anuncia o número certo de frases (' + diz + ')')
+  : nok('o manual diz ' + diz + ' frases; o app tem ' + dados.total);
+const faltando = dados.cats
+  .map(c => c.replace(/^[^\p{L}]+/u, '').split(' ')[0].toLowerCase())
+  .filter(p => !manual.toLowerCase().includes(p));
+faltando.length === 0
+  ? ok('todos os ' + dados.cats.length + ' temas aparecem no manual')
+  : nok('tema(s) fora do manual: ' + faltando.join(', '));
+
+console.log('\n=== 8. Sem vazamento horizontal ===');
 for (const [nome, w] of [['Android pequeno', 360], ['iPhone 14', 390], ['iPhone Pro Max', 430]]) {
   await pg.setViewportSize({ width:w, height:844 }); await pg.waitForTimeout(250);
   const larg = await pg.evaluate(() => document.documentElement.scrollWidth);

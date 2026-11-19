@@ -117,10 +117,11 @@ linha, batida de ferramenta, voz longe demais -- ele avisa que
 não entendeu em vez de inventar uma frase. É de propósito: uma
 frase inventada seria acreditada pelos dois.
 
-O botão 📖 abre 101 frases prontas que funcionam SEM internet,
+O botão 📖 abre 104 frases prontas que funcionam SEM internet,
 agrupadas por tema (segurança, linha e produção, qualidade e
-inspeção, peças de motor, ferramentas, manutenção, kaizen) e com
-busca em português, japonês ou romaji.
+inspeção, peças do motor, ferramentas e medição, problemas e
+manutenção, kaizen e chão de fábrica, conversa) e com busca em
+português, japonês ou romaji.
 O botão 🕘 mostra a conversa e permite exportar tudo em texto.
 
 
