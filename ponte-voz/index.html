@@ -2527,7 +2527,15 @@ document.addEventListener('click', liberarAudio, { once:true });
 // evita que o celular apague a tela no meio da conversa
 let wake = null;
 async function segurarTela(){
-  try{ if('wakeLock' in navigator && !wake) wake = await navigator.wakeLock.request('screen'); }catch(e){}
+  if(!('wakeLock' in navigator) || wake) return;
+  try{
+    wake = await navigator.wakeLock.request('screen');
+    // O navegador solta a trava sozinho quando a tela apaga ou a aba sai de
+    // foco, mas o objeto continua existindo. Sem zerar a referência aqui, o
+    // `wake` de cima barrava todo novo pedido e a tela passava a apagar pelo
+    // resto da visita — justamente quando o app já estava em uso.
+    wake.addEventListener('release', () => { wake = null; });
+  }catch(e){ wake = null; }
 }
 document.addEventListener('visibilitychange', () => { if(document.visibilityState === 'visible') segurarTela(); });
 segurarTela();
