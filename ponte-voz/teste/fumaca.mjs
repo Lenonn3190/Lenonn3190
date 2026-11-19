@@ -113,7 +113,35 @@ erros.length === antes
   ? ok('abrir e fechar a escuta não deixa erro no console')
   : nok('erro ao parar a escuta: ' + erros.slice(antes).join(' | '));
 
-console.log('\n=== 5. Sem vazamento horizontal ===');
+console.log('\n=== 5. Viva-voz: o app não ouve a própria voz ===');
+// Sem esta trava, no alto-falante o app transcreveria a própria tradução,
+// traduziria de novo e entraria em laço. O fake device do Chromium gera um
+// tom contínuo, então o detector de fala dispara sozinho — é exatamente o
+// cenário de som vazando do alto-falante.
+await pg.evaluate(() => { window.__eventos = []; });
+await pg.evaluate(async () => {
+  window.appFalandoAntes = appFalando;
+  await iniciarEscuta(tipo => window.__eventos.push(tipo));
+});
+await pg.waitForTimeout(900);
+const vivo = await pg.evaluate(() => window.__eventos.length);
+vivo > 0 ? ok('com a trava solta, o microfone capta normalmente (' + vivo + ' eventos)')
+         : nok('o microfone não captou nada; o resto do teste não vale');
+
+await pg.evaluate(() => { window.__eventos = []; appFalando = true; });
+await pg.waitForTimeout(900);
+const durante = await pg.evaluate(() => window.__eventos.length);
+durante === 0 ? ok('enquanto o app fala, nada é captado — sem laço no viva-voz')
+              : nok('o app captou ' + durante + ' eventos enquanto falava: laço possível');
+
+await pg.evaluate(() => { window.__eventos = []; appFalando = false; });
+await pg.waitForTimeout(900);
+const depois = await pg.evaluate(() => window.__eventos.length);
+depois > 0 ? ok('a escuta volta sozinha quando o app cala')
+           : nok('a escuta não voltou depois da fala');
+await pg.evaluate(() => pararEscuta());
+
+console.log('\n=== 6. Sem vazamento horizontal ===');
 for (const [nome, w] of [['Android pequeno', 360], ['iPhone 14', 390], ['iPhone Pro Max', 430]]) {
   await pg.setViewportSize({ width:w, height:844 }); await pg.waitForTimeout(250);
   const larg = await pg.evaluate(() => document.documentElement.scrollWidth);

@@ -124,6 +124,32 @@ busca em português, japonês ou romaji.
 O botão 🕘 mostra a conversa e permite exportar tudo em texto.
 
 
+VIVA-VOZ (ALTO-FALANTE DO CELULAR)
+----------------------------------
+Funciona e é assim que o app já vem. Sem fone conectado, a
+tradução sai pelo alto-falante do aparelho, sem configurar nada.
+
+Uma coisa só para conferir: em ⚙ -> Modo fone, a opção "Separar
+as vozes por lado do fone" tem que ficar DESLIGADA (é como vem).
+Ligada, ela manda a tradução para um lado só -- num aparelho com
+dois alto-falantes ela sai por apenas um, e num de alto-falante
+único sai mais baixa. Se você ligou para testar o fone, desligue
+antes de usar na mesa.
+
+No mãos livres o viva-voz também serve: o app trava a escuta
+enquanto fala, então ele não transcreve a própria tradução nem
+entra em laço (testado). O que ainda atrapalha é eco de sala
+dura, que pode disparar um trecho à toa.
+
+Onde o viva-voz perde de longe: COM A LINHA RODANDO. O
+alto-falante de celular não vence o barulho de uma fábrica de
+motores. Para andar no chão de fábrica, fone; para conversar
+sentado numa sala ou com a linha parada, viva-voz resolve bem.
+
+O volume é o volume de mídia do aparelho -- suba antes de
+começar, não no meio da conversa.
+
+
 CHAVE COMPARTILHADA (OPCIONAL)
 ------------------------------
 Se você não quiser colar a chave em cada aparelho, o pacote já traz
