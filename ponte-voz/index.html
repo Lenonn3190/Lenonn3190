@@ -110,6 +110,26 @@ input,select,textarea{font-family:inherit;font-size:16px}
 .mic.rec .lvl{display:block}
 .mic .lvl i{display:block;height:100%;width:0%;background:#fff;transition:width .09s linear}
 
+/* ============ MEDIDOR DE MICROFONE (⚙) ============
+   Serve para responder uma pergunta só: o microfone que estou vendo na
+   lista é mesmo o que está captando? Verde até o nível bom, amarelo
+   quando começa a ficar alto e vermelho quando satura. O traço claro é o
+   pico recente, que segura por um instante — sem ele, uma fala curta mal
+   dá para ver. */
+#nivelBarra{
+  position:relative;height:16px;border-radius:99px;overflow:hidden;
+  background:rgba(255,255,255,.12);border:1px solid var(--line-2);
+}
+#nivelBarra i{
+  display:block;height:100%;width:0%;border-radius:99px;
+  background:linear-gradient(90deg,var(--pt) 0 55%,var(--warn) 78%,var(--bad));
+  transition:width .06s linear;
+}
+#nivelBarra u{
+  position:absolute;top:0;bottom:0;width:2px;left:0;background:#fff;opacity:0;
+  transition:left .06s linear,opacity .25s linear;
+}
+
 /* ============ BARRA CENTRAL ============ */
 .bar{
   flex:none;display:flex;align-items:center;gap:8px;padding:7px 12px;min-width:0;
@@ -282,6 +302,15 @@ textarea{resize:vertical;min-height:74px;line-height:1.5}
     <p>Com fone de ouvido conectado, escolha o microfone do headset: perto da boca, ele funciona muito melhor com a linha rodando.</p>
     <select id="iMic"><option value="">Microfone padrão do aparelho</option></select>
     <button class="btn sec" id="bMics">Procurar microfones</button>
+
+    <button class="btn sec" id="bNivel" style="margin-top:8px">🎤 Testar: ver o nível entrando</button>
+    <div id="nivelCx" style="display:none;margin-top:10px">
+      <div id="nivelBarra"><i></i><u></u></div>
+      <div style="color:var(--muted);font-size:14px;margin-top:7px;line-height:1.5">
+        <span id="nivelQual"></span>
+        <div id="nivelEstado"></div>
+      </div>
+    </div>
 
     <h3>Vozes instaladas neste aparelho</h3>
     <div id="voiceOut" style="margin-bottom:8px"></div>
@@ -1996,7 +2025,9 @@ function abrir(sel){ $(sel).classList.add('on'); }
 function fechar(sel){ $(sel).classList.remove('on'); }
 function fecharModal(m){
   m.classList.remove('on');
-  if(m.id === 'mCfg') revisarEstado();
+  // o medidor segura o microfone aberto; fechando o painel ele tem de soltar,
+  // senão disputa o aparelho com a gravação e come bateria à toa
+  if(m.id === 'mCfg'){ desligarMedidor(); revisarEstado(); }
 }
 document.querySelectorAll('[data-close]').forEach(b => {
   b.addEventListener('click', () => fecharModal(b.closest('.modal')));
@@ -2397,7 +2428,124 @@ $('#bMics').addEventListener('click', async () => {
   b.disabled = false;
   b.textContent = n ? n + ' microfone(s) encontrado(s)' : 'Nenhum microfone encontrado';
 });
-$('#iMic').addEventListener('change', e => S.mic = e.target.value);
+$('#iMic').addEventListener('change', e => {
+  S.mic = e.target.value;
+  if(medidor) ligarMedidor();      // já testando: troca para o novo na hora
+});
+
+/* ---------- medidor de microfone ----------
+   A lista de microfones diz qual foi ESCOLHIDO; isso não é o mesmo que
+   saber qual está captando. No iPhone o Safari ignora o deviceId e roteia
+   sozinho para o acessório conectado, e um microfone Bluetooth pode
+   simplesmente não entregar áudio. A barra responde à pergunta de verdade:
+   está entrando som, e por qual aparelho. */
+let medidor = null;
+
+function desligarMedidor(){
+  if(!medidor) return;
+  cancelAnimationFrame(medidor.raf);
+  try{ medidor.src.disconnect(); }catch(e){}
+  medidor.stream.getTracks().forEach(t => t.stop());
+  medidor = null;
+  $('#nivelCx').style.display = 'none';
+  $('#bNivel').textContent = '🎤 Testar: ver o nível entrando';
+}
+
+async function ligarMedidor(){
+  desligarMedidor();
+  const cx = $('#nivelCx'), qual = $('#nivelQual'), estado = $('#nivelEstado');
+  const barra = $('#nivelBarra i'), marca = $('#nivelBarra u');
+  cx.style.display = 'block';
+  qual.textContent = 'Abrindo o microfone…'; estado.textContent = '';
+  $('#bNivel').textContent = '■ Parar o teste';
+
+  // MEDIDO: com autoGainControl ligado (que é como a gravação abre o
+  // microfone, e deve continuar sendo), uma sala em silêncio marcava 51% na
+  // barra — o navegador amplifica o silêncio até o nível de fala. O medidor
+  // ficava mexendo sempre e não dizia nada. Aqui o sinal é aberto CRU, de
+  // propósito: é a única forma de a barra distinguir "perto da boca" de
+  // "microfone errado". A gravação continua usando o processamento.
+  const pedido = { channelCount:1, echoCancellation:false,
+                   noiseSuppression:false, autoGainControl:false };
+  let stream;
+  try{
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: S.mic ? Object.assign({ deviceId:{ exact:S.mic } }, pedido) : pedido });
+  }catch(e){
+    // o aparelho escolhido pode ter sido desconectado desde a busca
+    try{ stream = await navigator.mediaDevices.getUserMedia({ audio: pedido }); }
+    catch(e2){
+      qual.innerHTML = '<b style="color:var(--bad)">Não consegui abrir o microfone.</b> ' +
+                       'Libere o acesso nas permissões do navegador e tente de novo.';
+      $('#bNivel').textContent = '🎤 Testar: ver o nível entrando';
+      return;
+    }
+  }
+
+  const faixa = stream.getAudioTracks()[0];
+  const ac = ctx();
+  const src = ac.createMediaStreamSource(stream);
+  const an = ac.createAnalyser();
+  an.fftSize = 1024; an.smoothingTimeConstant = 0.15;
+  src.connect(an);
+  const dados = new Float32Array(an.fftSize);
+  medidor = { stream, src, raf:0, pico:0, picoEm:0, satura:0 };
+
+  // Qual aparelho o navegador REALMENTE abriu, que nem sempre é o pedido.
+  qual.textContent = '';
+  qual.appendChild(document.createTextNode('Captando por: '));
+  const bNome = document.createElement('b');
+  bNome.style.color = 'var(--txt)';
+  bNome.textContent = (faixa.label || '').trim() || 'microfone sem nome';
+  qual.appendChild(bNome);
+  try{
+    const real = faixa.getSettings().deviceId;
+    if(S.mic && real && real !== S.mic){
+      const av = document.createElement('div');
+      av.innerHTML = '<b style="color:var(--warn)">O aparelho ignorou a escolha</b> e abriu este. ' +
+                     'É o comportamento normal do iPhone: o iOS roteia sozinho para o acessório conectado.';
+      qual.appendChild(av);
+    }
+  }catch(e){}
+
+  const quadro = () => {
+    if(!medidor) return;
+    an.getFloatTimeDomainData(dados);
+    let soma = 0, maior = 0;
+    for(let i=0;i<dados.length;i++){
+      const a = Math.abs(dados[i]);
+      soma += dados[i]*dados[i];
+      if(a > maior) maior = a;
+    }
+    const rms = Math.sqrt(soma / dados.length);
+    if(maior >= 0.99) medidor.satura = performance.now();
+
+    // escala em dB: a linear esmaga a fala toda no canto esquerdo
+    const db  = 20 * Math.log10(Math.max(rms, 1e-6));
+    const pct = Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+    barra.style.width = pct.toFixed(1) + '%';
+
+    const agora = performance.now();
+    if(pct > medidor.pico || agora - medidor.picoEm > 900){ medidor.pico = pct; medidor.picoEm = agora; }
+    marca.style.left = medidor.pico.toFixed(1) + '%';
+    marca.style.opacity = medidor.pico > 2 ? '.85' : '0';
+
+    // Cortes medidos com áudio de nível conhecido, sinal cru (teste/
+    // calibra-nivel.mjs): sala em silêncio marca 22, fala longe 40, fala
+    // normal com o microfone perto 69, fala muito alta 87.
+    let diz;
+    if(agora - medidor.satura < 1200)  diz = '<b style="color:var(--bad)">Saturando</b> — afaste um pouco o microfone.';
+    else if(medidor.pico < 30)         diz = '<b style="color:var(--bad)">Nada chegando.</b> Se você está falando, este microfone não é o que capta.';
+    else if(medidor.pico < 55)         diz = '<b style="color:var(--warn)">Fraco</b> — chegue mais perto ou escolha outro microfone.';
+    else if(medidor.pico < 80)         diz = '<b style="color:var(--pt)">Bom.</b> É este microfone que o app vai usar.';
+    else                               diz = '<b style="color:var(--warn)">Muito alto</b> — afaste um pouco.';
+    if(estado.innerHTML !== diz) estado.innerHTML = diz;
+    medidor.raf = requestAnimationFrame(quadro);
+  };
+  medidor.raf = requestAnimationFrame(quadro);
+}
+
+$('#bNivel').addEventListener('click', () => { medidor ? desligarMedidor() : ligarMedidor(); });
 
 function pintarVozes(){
   const out = $('#voiceOut');

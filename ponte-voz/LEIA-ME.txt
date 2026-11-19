@@ -269,6 +269,40 @@ dá para o mãos livres saber QUEM falou pelo canal em vez de
 deduzir pelo idioma.
 
 
+CONFERIR QUAL MICROFONE ESTÁ CAPTANDO
+-------------------------------------
+Em ⚙ -> Microfone tem o botão "🎤 Testar: ver o nível entrando".
+Ele abre uma barra que mexe com o som, e embaixo dela o NOME do
+aparelho que está realmente captando.
+
+É a única forma de ter certeza. A lista de microfones diz qual
+foi escolhido, que não é a mesma coisa: no iPhone o Safari
+ignora a escolha e roteia sozinho; um microfone Bluetooth pode
+aparecer na lista e não entregar áudio nenhum. Fale uma frase e
+olhe a barra.
+
+O que a barra diz (cortes medidos, não chutados):
+
+  Nada chegando  - se você está falando, este microfone não é o
+                   que capta. Escolha outro na lista.
+  Fraco          - chegue mais perto ou troque de microfone.
+  Bom            - é este que o app vai usar.
+  Muito alto /
+  Saturando      - afaste um pouco.
+
+Vale fazer com cada acessório antes da visita: fone, lapela,
+headset. Trinta segundos agora, em vez de descobrir no meio da
+conversa que o japonês não está sendo transcrito.
+
+A barra mede o sinal CRU, sem o ganho automático do navegador.
+É de propósito: com o ganho ligado, uma sala em silêncio marcava
+"Bom" (o navegador amplifica o silêncio até o nível de fala) e a
+barra não servia para nada. A gravação continua usando o ganho
+automático normalmente.
+
+O teste solta o microfone quando você fecha as configurações.
+
+
 MODO MÃOS LIVRES (⚙ -> Mãos livres)
 ------------------------------------
 O microfone fica aberto, o app detecta sozinho quando alguém

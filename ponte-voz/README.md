@@ -355,6 +355,37 @@ Com o fone conectado, vá em **⚙ → Microfone → Procurar microfones** e esc
 o do headset. Sem isso o navegador pode continuar usando o microfone interno
 do aparelho.
 
+### Conferir qual microfone está captando
+
+A lista diz qual microfone foi *escolhido* — que não é a mesma coisa que saber
+qual está captando. No iPhone o Safari ignora o `deviceId` e roteia sozinho; um
+microfone Bluetooth pode aparecer na lista e não entregar áudio nenhum.
+
+**⚙ → Microfone → "🎤 Testar: ver o nível entrando"** abre uma barra ao vivo e,
+embaixo dela, o nome que o navegador devolve em `track.label` — o aparelho que
+está realmente aberto. Se o `deviceId` efetivo não for o pedido, o app diz isso
+na tela, em vez de deixar a pessoa achar que a escolha pegou.
+
+Os cortes das faixas são medidos, não arbitrados (`teste/calibra-nivel.mjs`
+alimenta o Chromium com áudio em RMS conhecido):
+
+| entrada | pico | diagnóstico |
+|---|---|---|
+| sala em silêncio (RMS 0,003) | 21% | Nada chegando |
+| fala longe / microfone errado (0,01) | 40% | Fraco |
+| fala normal, microfone perto (0,08) | 70% | **Bom** |
+| fala muito alta (0,25) | 87% | Muito alto |
+
+O medidor abre o microfone **cru** — `autoGainControl`, `noiseSuppression` e
+`echoCancellation` desligados. Não é detalhe: com o ganho automático ligado
+(que é como a gravação abre, e deve continuar abrindo), uma sala em silêncio
+marcava **51%, "Bom"** — o navegador amplifica o silêncio até o nível de fala,
+e a barra passava a não distinguir nada. A gravação segue com o processamento.
+
+A escala é em dB (`(dB + 60) / 60`); a linear esmaga toda a faixa de voz no
+canto esquerdo. O traço branco é o pico recente, com retenção de 900 ms, senão
+uma fala curta mal dá para ver. Fechar as configurações solta o microfone.
+
 ---
 
 ## Microfone de lapela sem fio (kit de 2 transmissores)

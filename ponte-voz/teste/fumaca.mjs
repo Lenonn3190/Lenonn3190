@@ -42,8 +42,13 @@ const srv = http.createServer((q, r) => {
 });
 await new Promise(r => srv.listen(8890, r));
 
+// Áudio determinístico em nível de fala conhecido (RMS 0,08, o mesmo nível
+// da calibração), para que a barra de nível possa ser verificada de verdade
+// em vez de só "mexeu alguma coisa".
 const nav = await chromium.launch({
-  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']
+  args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream',
+         '--use-file-for-fake-audio-capture=' +
+           path.join(path.dirname(fileURLToPath(import.meta.url)), 'nivel-fala.wav')]
 });
 const ctx = await nav.newContext({ permissions:['microphone'], viewport:{ width:390, height:844 } });
 const pg = await ctx.newPage();
@@ -141,7 +146,35 @@ depois > 0 ? ok('a escuta volta sozinha quando o app cala')
            : nok('a escuta não voltou depois da fala');
 await pg.evaluate(() => pararEscuta());
 
-console.log('\n=== 6. Sem vazamento horizontal ===');
+console.log('\n=== 6. Barra de nível do microfone (⚙) ===');
+await pg.setViewportSize({ width:390, height:844 });
+await pg.click('#bCfg'); await pg.waitForTimeout(400);
+await pg.locator('#nivelCx').isVisible()
+  ? nok('a barra aparece antes de o teste começar')
+  : ok('a barra só aparece depois de tocar em testar');
+await pg.click('#bNivel');
+await pg.waitForTimeout(1200);
+await pg.locator('#nivelCx').isVisible() ? ok('barra visível durante o teste') : nok('barra não apareceu');
+const qual = (await pg.textContent('#nivelQual')).trim();
+qual.startsWith('Captando por:') && qual.length > 'Captando por:'.length + 2
+  ? ok('mostra qual microfone está captando: "' + qual.replace(/\s+/g,' ').slice(0,60) + '"')
+  : nok('não mostrou o microfone em uso: "' + qual + '"');
+// Entra áudio em nível de fala normal: a barra tem de pousar na faixa "bom".
+// Isso confere de uma vez que ela reage E que as faixas seguem calibradas.
+const pico = await pg.evaluate(() => medidor ? medidor.pico : -1);
+pico >= 55 && pico < 80
+  ? ok('nível de fala normal cai na faixa certa (' + pico.toFixed(0) + '%)')
+  : nok('fala normal marcou ' + pico.toFixed(0) + '%, fora da faixa "bom" (55-80)');
+const dito = (await pg.textContent('#nivelEstado')).trim();
+dito.startsWith('Bom.') ? ok('e diz em palavras: "' + dito + '"')
+                        : nok('diagnóstico errado para fala normal: "' + dito + '"');
+
+// o medidor segura o microfone aberto: fechar o painel tem de soltar
+await pg.click('#mCfg [data-close]'); await pg.waitForTimeout(500);
+const vivos = await pg.evaluate(() => medidor === null);
+vivos ? ok('fechar as configurações solta o microfone') : nok('o medidor continuou com o microfone aberto');
+
+console.log('\n=== 7. Sem vazamento horizontal ===');
 for (const [nome, w] of [['Android pequeno', 360], ['iPhone 14', 390], ['iPhone Pro Max', 430]]) {
   await pg.setViewportSize({ width:w, height:844 }); await pg.waitForTimeout(250);
   const larg = await pg.evaluate(() => document.documentElement.scrollWidth);
